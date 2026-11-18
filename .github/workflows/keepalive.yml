@@ -1,0 +1,24 @@
+name: Maintien en activité
+
+# GitHub met en pause les tâches planifiées d'un dépôt sans activité depuis 60 jours.
+# Ce petit commit mensuel évite que la veille s'arrête.
+on:
+  schedule:
+    - cron: "17 6 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
+          git config user.name "helix-veille"
+          git config user.email "helix-veille@users.noreply.github.com"
+          git add .keepalive
+          git commit -m "Maintien en activité de la veille" || exit 0
+          git push
