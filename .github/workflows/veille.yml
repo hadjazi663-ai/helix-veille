@@ -1,0 +1,34 @@
+name: Veille appels d'offres (Var)
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # toutes les 15 minutes (GitHub peut décaler de quelques minutes)
+  workflow_dispatch:          # bouton « Run workflow » pour un lancement immédiat
+
+permissions:
+  contents: write
+
+concurrency:
+  group: veille
+  cancel-in-progress: false
+
+jobs:
+  veille:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Lire le BOAMP et le TED, alerter
+        run: node scripts/veille.mjs
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          APP_URL: ${{ vars.APP_URL }}
+      - name: Enregistrer les offres connues
+        run: |
+          git config user.name "helix-veille"
+          git config user.email "helix-veille@users.noreply.github.com"
+          git add data/offres.json
+          git diff --cached --quiet || (git commit -m "Veille : mise à jour des offres" && git push)
