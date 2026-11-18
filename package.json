@@ -1,0 +1,8 @@
+{
+  "name": "helix-veille",
+  "private": true,
+  "type": "module",
+  "description": "Veille des appels d'offres sécurité du Var pour Helix Sécurité",
+  "scripts": { "veille": "node scripts/veille.mjs" },
+  "engines": { "node": ">=20" }
+}
