@@ -1,5 +1,5 @@
 {
- "maj": "2026-11-18T20:49:38.783Z",
+ "maj": "2026-11-18T20:51:40.694Z",
  "offres": {
   "26-104009": {
    "id": "26-104009",
@@ -8,9 +8,9 @@
    "cat": "gardiennage",
    "titre": "Telesurveillance des batiments communaux sous alarme intrusion de la commune de sanary-sur-mer",
    "acheteur": "Ville de Sanary sur Mer (83)",
-   "ville": "Var",
+   "ville": "Sanary-sur-Mer",
    "dep": "83",
-   "km": null,
+   "km": 65,
    "limite": "2026-11-27T16:00:00+00:00",
    "parution": "2026-10-26",
    "proc": "Procédure Adaptée",
@@ -101,7 +101,7 @@
    "id": "26-107685",
    "kind": "ao",
    "source": "boamp",
-   "cat": "gardiennage",
+   "cat": "incendie",
    "titre": "Prestations de prévention incendie, d’interventions sur sinistres et de gestion d’alarmes sur les sites pyrotechniques de Toulon et Tourris de l’Etablissement principal Munitions Provence Méditerranée",
    "acheteur": "Plate-forme commissariat Sud",
    "ville": "Toulon",
