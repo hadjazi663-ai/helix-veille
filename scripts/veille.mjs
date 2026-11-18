@@ -62,7 +62,7 @@ async function main() {
   }
   console.log(`Nouvelles offres notifiées : ${firstRun ? 0 : fresh.length}`);
 
-  const changed = fresh.length || firstRun || Object.keys(offres).length !== Object.keys(state.offres).length;
+  const changed = firstRun || JSON.stringify(offres) !== JSON.stringify(state.offres);
   if (changed) await writeFile(STATE, JSON.stringify({ maj: now, offres }, null, 1) + "\n");
   else console.log("Aucun changement.");
 }
