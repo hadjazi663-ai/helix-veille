@@ -1,0 +1,31 @@
+name: Établissements à démarcher (Var)
+
+on:
+  schedule:
+    - cron: "17 4 3 * *"   # le 3 de chaque mois, 4 h 17 UTC
+  workflow_dispatch:        # bouton « Run workflow » pour une mise à jour immédiate
+
+permissions:
+  contents: write
+
+concurrency:
+  group: veille
+  cancel-in-progress: false
+
+jobs:
+  etablissements:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Télécharger FINESS et l'annuaire de l'Éducation nationale
+        run: node scripts/etablissements.mjs
+      - name: Publier la liste
+        run: |
+          git config user.name "helix-veille"
+          git config user.email "helix-veille@users.noreply.github.com"
+          git add docs/etablissements.json
+          git diff --cached --quiet || (git commit -m "Établissements : mise à jour mensuelle" && git pull --rebase && git push)
