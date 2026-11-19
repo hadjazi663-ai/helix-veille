@@ -361,7 +361,7 @@ async function renderPlaque(o, tpl) {
   box.innerHTML = `<div style="display:flex;gap:12px;align-items:flex-start;margin-top:12px;padding:10px;border:1px solid rgba(201,154,90,.35);border-radius:12px">
     <a href="plaque.html#${k}" target="_blank" rel="noopener"><img id="aPlaqueImg" alt="Plaque" style="width:150px;border-radius:6px;display:block;background:#17130f;aspect-ratio:3/2"></a>
     <div style="flex:1"><b>Plaque jointe : ${esc(PLQ[k].tag)}</b>
-      <p class="hint" style="margin-top:4px">Le lien est déjà dans le message. Pour l'afficher dans le mail : « Copier pour Gmail », puis dans Gmail cliquez dans le message et collez (Ctrl+V, ou appui long → Coller).</p>
+      <p class="hint" style="margin-top:4px"><b>Pour mettre l'image dans le mail :</b> cliquez sur « Envoyer avec Gmail » (la plaque est copiée automatiquement), puis dans Gmail cliquez juste au-dessus de « Bien cordialement » et collez : Ctrl+V sur ordinateur, appui long → Coller sur téléphone. Vous pouvez ensuite effacer la ligne du lien.</p>
       <div class="m-actions left" style="margin-top:8px"><button class="pill sm gold" id="pCopy" data-plaque="${k}" type="button">Copier pour Gmail</button><button class="pill sm" id="pDown" data-plaque="${k}" type="button">Télécharger</button></div>
     </div></div>`;
   try { const c = await drawPlaque(k); if (box.dataset.k === k) $("#aPlaqueImg").src = c.toDataURL("image/jpeg", .85); } catch (e) { }
@@ -803,7 +803,7 @@ async function testPush() {
 // =====================================================================
 //  ÉVÉNEMENTS
 // =====================================================================
-function toast(t) { const el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove("on"), 2600); }
+function toast(t, ms = 2600) { const el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove("on"), ms); }
 async function copy(text) { try { await navigator.clipboard.writeText(text); toast("Copié"); } catch (e) { toast("Copie impossible : sélectionnez le texte"); } }
 function closeAll() { document.querySelectorAll(".ov").forEach(o => o.classList.remove("on")); }
 
@@ -832,7 +832,11 @@ document.addEventListener("click", async e => {
     await store.save(nd); fillMessage(nd); return;
   }
   if (t.dataset.close !== undefined) { closeAll(); render(); return; }
-  if (t.id === "aGmail" || t.id === "aMail") { setTimeout(markSentIfNeeded, 400); return; }
+  if (t.id === "aGmail" || t.id === "aMail") {
+    const k = $("#aPlaque") && !$("#aPlaque").hidden ? $("#aPlaque").dataset.k : null;
+    if (k) { try { navigator.clipboard.write([new ClipboardItem({ "image/png": plaqueBlob(k) })]).then(() => toast("Plaque copiée : dans le mail, cliquez au-dessus de « Bien cordialement » puis collez (Ctrl+V ou appui long → Coller)", 9000)).catch(() => { }); } catch (err) { } }
+    setTimeout(markSentIfNeeded, 400); return;
+  }
   if (t.id === "pCopy") { copyPlaque(t.dataset.plaque); return; }
   if (t.id === "pDown") { downloadPlaque(t.dataset.plaque); return; }
   if (t.id === "aCopy") { await copy(`À : ${$("#aTo").value}\nObjet : ${$("#aSubj").value}\n\n${$("#aBody").value}`); return; }
