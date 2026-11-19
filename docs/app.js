@@ -809,7 +809,10 @@ async function start() {
         $("#lErr").textContent = "Code envoyé : regardez vos e-mails (et les indésirables).";
       } else { await store.verifyCode(email, $("#lCode").value.trim()); start(); }
     } catch (err) {
-      $("#lErr").textContent = !codeSent ? "Cette adresse n'est pas autorisée, ou trop de demandes : réessayez dans quelques minutes." : "Code incorrect ou expiré.";
+      const msg = String(err && (err.message || err.code) || "");
+      $("#lErr").textContent = codeSent ? "Code incorrect ou expiré."
+        : (err && err.status === 429) || /rate limit|too many|security purposes/i.test(msg) ? "Trop de mails de connexion envoyés cette heure-ci (limite du service gratuit). Réessayez dans une heure, ou utilisez le lien du dernier mail reçu."
+        : /not allowed|signups/i.test(msg) ? "Cette adresse n'est pas autorisée." : "Envoi impossible : " + msg;
     }
   });
 })();
