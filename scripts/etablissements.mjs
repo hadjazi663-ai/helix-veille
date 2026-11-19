@@ -26,7 +26,7 @@ export const GROUPS = {
   college: { label: "Collèges", base: 25, angle: "Contrôle d'accès, sécurisation des événements et, s'il y a un internat, surveillance de nuit. Établissement public : le Département du Var gère les gros achats. Établissement privé : le chef d'établissement décide." }
 };
 
-const SKIP = /centre de sant[ée]|m[ée]dico.?psycho|\bc\.?m\.?p\b|domicile|dialyse|laboratoire|pharmacie|ambulatoire|consultation|^service|\bservice\b|c\.?s\.?a\.?p\.?a|addictolog|planification|protection maternelle|action m[ée]dico.?sociale pr[ée]coce|\bcamsp\b|\bsessad\b|bureau|transfusion|lactarium|radioth[ée]rapie|centre de dialyse|cabinet|t[ée]l[ée]surveillance|appartement de coordination/i;
+const SKIP = /centre de sant[ée]|m[ée]dico.?psycho|\bc\.?m\.?p\b|domicile|dialyse|laboratoire|pharmacie|ambulatoire|consultation|^service|\bservice\b|c\.?s\.?a\.?p\.?a|addictolog|planification|protection maternelle|action m[ée]dico.?sociale pr[ée]coce|\bcamsp\b|\bsessad\b|bureau|transfusion|lactarium|radioth[ée]rapie|centre de dialyse|cabinet|t[ée]l[ée]surveillance|appartement de coordination|maisons? d[ée]partementales|centre de jour|accueil de jour pour personnes/i;
 const RULES = [
   ["hebergement", /r[ée]insertion sociale|c\.?h\.?r\.?s|demandeurs d.asile|c\.?a\.?d\.?a|h[ée]bergement d.urgence|centre provisoire|jeunes travailleurs|r[ée]sidences? sociales?|pension de famille|maison relais|lits halte|lits d.accueil m[ée]dicalis|accueil de jour|h[ée]bergement social/i],
   ["enfance", /maison d.enfants|foyer de l.enfance|m[èe]re.?enfant|pouponni|lieux? de vie|village d.enfants|protection de l.enfance/i],
