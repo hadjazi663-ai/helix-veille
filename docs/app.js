@@ -340,6 +340,43 @@ ${coordBlock()}`
     })
   }
 };
+// Plaques de présentation (une par métier) : jointes à chaque message
+const PLAQUES = { gardiennage: "Gardiennage et surveillance de sites", evenementiel: "Sécurité événementielle", medico: "Sécurité des établissements sociaux, médico-sociaux et médicaux" };
+const PLAQUE_BASE = "https://helix-veille.github.io/plaques/";
+function plaqueKey(o) {
+  if (o.kind === "etab") return o.grp === "lycee" || o.grp === "college" ? "gardiennage" : "medico";
+  return o.cat === "evenementiel" ? "evenementiel" : o.cat === "medico" ? "medico" : "gardiennage";
+}
+function withPlaque(e, o, tpl) {
+  if (tpl === "soustraitance" || !e.body) return e;
+  const k = plaqueKey(o), line = `Vous trouverez notre plaquette « ${PLAQUES[k]} » ici : ${PLAQUE_BASE}${k}.jpg`;
+  const i = e.body.lastIndexOf("Bien cordialement");
+  return { ...e, body: i < 0 ? e.body + "\n\n" + line : e.body.slice(0, i) + line + "\n\n" + e.body.slice(i) };
+}
+function renderPlaque(o, tpl) {
+  let box = $("#aPlaque");
+  if (!box) { box = document.createElement("div"); box.id = "aPlaque"; $("#aHint").after(box); }
+  if (tpl === "soustraitance") { box.hidden = true; return; }
+  const k = plaqueKey(o), url = "plaques/" + k + ".jpg";
+  box.hidden = false;
+  box.innerHTML = `<div style="display:flex;gap:12px;align-items:flex-start;margin-top:12px;padding:10px;border:1px solid rgba(201,154,90,.35);border-radius:12px">
+    <a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="Plaque ${esc(PLAQUES[k])}" style="width:86px;border-radius:6px;display:block" onerror="this.closest('#aPlaque').hidden=true"></a>
+    <div style="flex:1"><b>Plaque jointe : ${esc(PLAQUES[k])}</b>
+      <p class="hint" style="margin-top:4px">Le lien est déjà dans le message. Pour qu'elle s'affiche en grand dans le mail : « Copier pour Gmail », puis dans Gmail cliquez dans le message et collez (Ctrl+V, ou appui long → Coller sur téléphone).</p>
+      <div class="m-actions left" style="margin-top:8px"><button class="pill sm gold" id="pCopy" data-plaque="${k}" type="button">Copier pour Gmail</button><a class="pill sm" href="${url}" download="Helix-Securite-${k}.jpg">Télécharger</a></div>
+    </div></div>`;
+}
+async function copyPlaque(k) {
+  try {
+    const png = (async () => {
+      const bmp = await createImageBitmap(await (await fetch("plaques/" + k + ".jpg")).blob());
+      const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height; c.getContext("2d").drawImage(bmp, 0, 0);
+      return await new Promise(r => c.toBlob(r, "image/png"));
+    })();
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+    toast("Plaque copiée : collez-la dans le message Gmail");
+  } catch (err) { toast("Copie impossible sur cet appareil : utilisez « Télécharger » puis joignez le fichier"); }
+}
 const tplsFor = o => Object.entries(TEMPLATES).filter(([, t]) => t.for === "all" || t.for === o.kind);
 
 const CHECK_AO = [
@@ -584,7 +621,7 @@ function messagesView() {
     <div class="eyebrow">${kind === "ao" ? "Pour un appel d'offres ouvert" : "Pour un acheteur à démarcher"}</div>
     <h2>${kind === "ao" ? "Répondre à une consultation" : "Se faire connaître"}</h2>
     ${Object.entries(TEMPLATES).filter(([, t]) => t.for === kind || (t.for === "all" && kind === "prospect")).map(([k, t]) => {
-      const e = t.build(kind === "ao" ? sampleAo : samplePr);
+      const e = withPlaque(t.build(kind === "ao" ? sampleAo : samplePr), kind === "ao" ? sampleAo : samplePr, k);
       return `<div class="tplcard"><div class="adhead"><b style="color:var(--white)">${esc(t.label)}</b><button class="pill sm" data-copy="tpl-${k}" type="button">Copier</button></div>
       <p style="margin:6px 0 0;font-size:13px">${esc(t.when)}</p>
       <div class="ad" id="tpl-${k}">Objet : ${esc(e.subj)}\n\n${esc(e.body)}</div></div>`;
@@ -696,7 +733,7 @@ async function openAccept(id) {
   let d = decisions[id];
   if (!d || d.status === "rejected") {
     const tpl = o.kind === "ao" ? "contact" : o.kind === "etab" ? "etablissement" : "presentation";
-    const e = TEMPLATES[tpl].build(o);
+    const e = withPlaque(TEMPLATES[tpl].build(o), o, tpl);
     d = { offre_id: id, status: "accepted", template: tpl, to_addr: [o.email, o.email2].filter(Boolean).join(", "), subject: e.subj, body: e.body, checklist: [], note: "", reason: "", offre: snapshot(o) };
     await store.save(d); render();
   }
@@ -722,6 +759,7 @@ function fillMessage(d) {
   else if (!o.email && d.template !== "soustraitance") hints.push("Aucun e-mail n'est publié pour cet acheteur : passez par la plateforme ou par l'accueil de la collectivité.");
   if (o.kind === "ao" && o.limite) hints.push("La réponse officielle se dépose sur la plateforme de l'acheteur avant le " + fmtDT(o.limite) + ".");
   $("#aHint").textContent = hints.join(" ");
+  renderPlaque(o, d.template);
   updateLinks();
 }
 function updateLinks() {
@@ -789,12 +827,13 @@ document.addEventListener("click", async e => {
   if (t.id === "rOk") { await store.save({ offre_id: current.id, status: "rejected", reason: rejectReason, note: $("#rNote").value.trim(), checklist: [], offre: snapshot(current) }); closeAll(); render(); toast("Offre rejetée"); return; }
   if (t.dataset.undo) { if (!confirmUndo(t)) return; await store.remove(t.dataset.undo); render(); toast("Décision annulée"); return; }
   if (t.dataset.tpl) {
-    const d = decisions[current.id]; const built = TEMPLATES[t.dataset.tpl].build(current);
+    const d = decisions[current.id]; const built = withPlaque(TEMPLATES[t.dataset.tpl].build(current), current, t.dataset.tpl);
     const nd = { ...d, template: t.dataset.tpl, subject: built.subj, body: built.body, to_addr: built.to !== undefined ? built.to : ([current.email, current.email2].filter(Boolean).join(", ")) };
     await store.save(nd); fillMessage(nd); return;
   }
   if (t.dataset.close !== undefined) { closeAll(); render(); return; }
   if (t.id === "aGmail" || t.id === "aMail") { setTimeout(markSentIfNeeded, 400); return; }
+  if (t.id === "pCopy") { copyPlaque(t.dataset.plaque); return; }
   if (t.id === "aCopy") { await copy(`À : ${$("#aTo").value}\nObjet : ${$("#aSubj").value}\n\n${$("#aBody").value}`); return; }
   if (t.dataset.copy) { copy(document.getElementById(t.dataset.copy).textContent); return; }
   if (t.id === "btnAlerts") { $("#topicName").textContent = topic() || "(à renseigner dans ⚙ Coordonnées)"; $("#ovAlerts").classList.add("on"); return; }
