@@ -132,7 +132,7 @@ async function loadExtra() {
 async function loadLive({ silent = false } = {}) {
   await loadExtra();
   try {
-    const ROBOT = "https://raw.githubusercontent.com/hadjazi663-ai/helix-veille/main/data/offres.json";
+    const ROBOT = "https://raw.githubusercontent.com/helix-veille/helix-veille.github.io/main/data/offres.json";
     const [direct, near13, robot] = await Promise.all([
       fetchOpenOffers().catch(() => []),
       fetchNearby13().catch(() => []),
