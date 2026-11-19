@@ -38,7 +38,7 @@ const store = {
     this.sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey);
     const { data } = await this.sb.auth.getSession();
     this.user = data.session?.user || null;
-    return true; // accès sans e-mail (temporaire) : le prénom est demandé au démarrage
+    return !!this.user;
   },
   async sendCode(email) {
     const { error } = await this.sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: location.href.split("#")[0] } });
@@ -49,16 +49,18 @@ const store = {
     if (error) throw error;
     this.user = data.user;
   },
-  async logout() { try { localStorage.removeItem("helix-prenom"); } catch (e) { } await this.sb.auth.signOut(); location.reload(); },
-  me() { let p = ""; try { p = localStorage.getItem("helix-prenom") || ""; } catch (e) { } if (p) return p; if (!this.user) return ""; const e = (this.user.email || "").toLowerCase(); return (CFG.users || {})[e] || e.split("@")[0]; },
+  async logout() { await this.sb.auth.signOut(); location.reload(); },
+  me() { if (!this.user) return ""; const e = (this.user.email || "").toLowerCase(); return (CFG.users || {})[e] || e.split("@")[0]; },
   loadLocal() {
     try { const j = JSON.parse(localStorage.getItem("helix-veille") || "{}"); decisions = j.decisions || {}; settings = { ...DEFAULT_SETTINGS, ...(j.settings || {}) }; } catch (e) { }
   },
   saveLocal() { try { localStorage.setItem("helix-veille", JSON.stringify({ decisions, settings })); } catch (e) { } },
   async loadAll() {
     if (this.mode === "local") return;
-    const pr = await this.sb.rpc("prenoms");
-    this.prenoms = (pr.data || []).map(x => typeof x === "string" ? x : (x.prenom || Object.values(x)[0])).filter(Boolean);
+    const ok = await this.sb.rpc("est_membre");
+    if (ok.data !== true) { const e = new Error("non autorisé"); e.code = "non_membre"; throw e; }
+    const mb = await this.sb.from("membres").select("email,prenom");
+    (mb.data || []).forEach(m => { CFG.users = CFG.users || {}; if (m.prenom) CFG.users[m.email.toLowerCase()] = m.prenom; });
     const { data, error } = await this.sb.from("decisions").select("*");
     if (error) throw error;
     decisions = Object.fromEntries((data || []).map(r => [r.offre_id, r]));
@@ -768,21 +770,6 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
 // =====================================================================
 //  DÉMARRAGE
 // =====================================================================
-async function askName() {
-  let p = ""; try { p = localStorage.getItem("helix-prenom") || ""; } catch (e) { }
-  if (p || store.mode !== "supabase") return;
-  const names = (store.prenoms || []).filter(n => !/helix/i.test(n));
-  await new Promise(done => {
-    $("#appMain").hidden = true; $("#login").hidden = false;
-    const sub = document.querySelector("#login .sub"); if (sub) sub.textContent = "Qui êtes-vous ? Votre prénom apparaîtra à côté de vos décisions.";
-    $("#loginForm").innerHTML = "" +
-      names.map(n => '<button class="pill wide" type="button" data-nom="' + esc(n) + '">' + esc(n) + '</button>').join("") +
-      '<div class="fld"><label for="lNom">Autre prénom</label><input id="lNom" autocomplete="given-name"></div><button class="pill wide" type="submit">Continuer</button>';
-    const ok = n => { n = (n || "").trim(); if (!n) return; try { localStorage.setItem("helix-prenom", n); } catch (e) { } $("#login").hidden = true; $("#appMain").hidden = false; done(); };
-    $("#loginForm").querySelectorAll("[data-nom]").forEach(b => b.onclick = () => ok(b.dataset.nom));
-    $("#loginForm").onsubmit = e => { e.preventDefault(); ok($("#lNom").value); };
-  });
-}
 async function start() {
   try { [prospects, notes] = await Promise.all([fetch("prospects.json").then(r => r.json()), fetch("notes.json").then(r => r.json())]); } catch (e) { }
   try { await store.loadAll(); }
@@ -795,7 +782,6 @@ async function start() {
     }
     toast("Base partagée injoignable : " + (e.message || ""));
   }
-  await askName();
   $("#login").hidden = true; $("#appMain").hidden = false;
   if (store.mode === "supabase") {
     $("#btnLogout").hidden = false; setSync("warn", "Connexion…"); store.subscribe(render);
