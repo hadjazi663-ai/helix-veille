@@ -211,11 +211,24 @@ async function annuaire(naf, extraParams = "") {
   return all;
 }
 const EFFECTIF = { "01": "1 à 2 salariés", "02": "3 à 5 salariés", "03": "6 à 9 salariés", "11": "10 à 19 salariés", "12": "20 à 49 salariés", "21": "50 à 99 salariés", "22": "100 à 199 salariés", "31": "200 à 249 salariés", "32": "250 à 499 salariés", "41": "500 à 999 salariés", "42": "1 000 à 1 999 salariés", "51": "2 000 à 4 999 salariés", "52": "5 000 à 9 999 salariés", "53": "10 000 salariés et plus" };
-export function etabRecords(results, naf, grp, label, angle, onlyRecentMonths = null) {
+// Taille minimale (tranche INSEE) pour qu'une structure ait réellement besoin d'agents de sécurité.
+export const TAILLE_MIN = { "55.10Z": "03", "55.20Z": "11", "55.30Z": "03", "47.11D": "11", "47.11F": "01", "52.10B": "11", "45.11Z": "11", "47.77Z": "03", "93.13Z": "03", "56.30Z": "03", "93.21Z": "03", "82.30Z": "03" };
+const TR = ["01", "02", "03", "11", "12", "21", "22", "31", "32", "41", "42", "51", "52", "53"];
+const rang = t => TR.indexOf(String(t || ""));
+// Assez grosse : tranche suffisante (entreprise ou établissement), ou enseigne d'un groupe (PME/ETI/GE avec 5 sites et plus).
+export function assezGros(e, m, min) {
+  if (!min) return true;
+  const r = Math.max(rang(e.tranche_effectif_salarie), rang(m && m.tranche_effectif_salarie));
+  if (r >= rang(min)) return true;
+  if (String(e.nature_juridique || "").startsWith("1")) return false; // entrepreneur individuel
+  return ["ETI", "GE"].includes(e.categorie_entreprise) || (e.categorie_entreprise === "PME" && (e.nombre_etablissements_ouverts || 0) >= 5);
+}
+export function etabRecords(results, naf, grp, label, angle, onlyRecentMonths = null, min = TAILLE_MIN[naf]) {
   const out = [], limit = onlyRecentMonths ? addMonths(NOW, -onlyRecentMonths) : null;
   for (const e of results) {
     const ets = (e.matching_etablissements || []).filter(m => String(m.code_postal || "").startsWith(DEP) && m.etat_administratif !== "F" && (!m.activite_principale || m.activite_principale === naf));
     for (const m of ets) {
+      if (!assezGros(e, m, min)) continue;
       if (limit && (!m.date_creation || new Date(m.date_creation) < limit)) continue;
       const k = km(m.latitude, m.longitude);
       const ens = (m.liste_enseignes || []).filter(Boolean)[0];
@@ -244,8 +257,8 @@ async function main() {
     try { const r = etabRecords(await annuaire(naf), naf, "ouverture", label, angle, OUVERTURE_MOIS); out.push(...r); log[naf] = r.length; } catch (e) { console.error(naf, e.message); }
   }
   for (const [naf, [grp, label, angle]] of Object.entries(NAF_ANNUAIRES)) {
-    // seulement les structures avec des salariés (tranche INSEE 01 et plus)
-    try { const r = etabRecords(await annuaire(naf, "&tranche_effectif_salarie=01,02,03,11,12,21,22,31,32,41,42,51,52,53"), naf, grp, label, angle); out.push(...r); log[naf] = r.length; } catch (e) { console.error(naf, e.message); }
+    // seulement les structures de 6 salariés et plus
+    try { const r = etabRecords(await annuaire(naf, "&tranche_effectif_salarie=03,11,12,21,22,31,32,41,42,51,52,53"), naf, grp, label, angle, null, "03"); out.push(...r); log[naf] = r.length; } catch (e) { console.error(naf, e.message); }
   }
   const uniq = [...new Map(out.map(o => [o.id, o])).values()].sort((a, b) => b.prio - a.prio || (a.km ?? 999) - (b.km ?? 999));
   console.log("Pistes :", uniq.length, JSON.stringify(log));
