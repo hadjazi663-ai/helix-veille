@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Helix Veille · Appels d'offres sécurité du Var</title>
+<meta name="description" content="Veille des appels d'offres de sécurité et de gardiennage dans le Var pour Helix Sécurité.">
+<meta name="theme-color" content="#100F0E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Helix Veille">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <img src="icons/icon-192.png" alt="Logo Helix Sécurité">
+      <div><b>Helix Sécurité</b><span>Veille des offres · Var</span></div>
+    </div>
+    <div class="top-sp"></div>
+    <div class="sync hide-m"><i class="dot" id="syncDot"></i><span id="syncTxt">Chargement…</span></div>
+    <button class="pill sm" id="btnAlerts" type="button">🔔 Alertes</button>
+    <button class="pill sm hide-m" id="btnSettings" type="button">⚙ Coordonnées</button>
+    <button class="pill sm" id="btnInstall" type="button" hidden>⬇ Installer</button>
+    <button class="pill sm hide-m" id="btnLogout" type="button" hidden>Déconnexion</button>
+  </div>
+</header>
+
+<!-- Écran de connexion (si la base partagée est configurée) -->
+<section id="login" class="login" hidden>
+  <div class="login-card">
+    <img src="icons/icon-192.png" alt="" width="88" height="88">
+    <div class="eyebrow">Espace dirigeants</div>
+    <h1>Helix Veille</h1>
+    <p class="sub">Entrez votre e-mail : vous recevrez un code de connexion. Pas de mot de passe à retenir.</p>
+    <form id="loginForm">
+      <div class="fld"><label for="lEmail">E-mail</label><input id="lEmail" type="email" autocomplete="username" required></div>
+      <div class="fld" id="codeBox" hidden><label for="lCode">Code reçu par e-mail</label><input id="lCode" inputmode="numeric" autocomplete="one-time-code" maxlength="10"></div>
+      <button class="pill gold wide" id="lBtn" type="submit">Recevoir mon code</button>
+      <p class="err" id="lErr"></p>
+    </form>
+  </div>
+</section>
+
+<main class="wrap" id="appMain" hidden>
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Var · Gardiennage en priorité</div>
+      <h1>Les offres de sécurité à saisir, en temps réel.</h1>
+      <p class="lead">Les appels d'offres du Var arrivent du BOAMP, du TED et des alertes des plateformes, classés selon le métier d'Helix et la distance depuis Brignoles. <b>Accepter</b> ouvre la fiche de réponse : message prêt à envoyer, puis étapes jusqu'au dépôt. <b>Rejeter</b> classe l'offre avec un motif.</p>
+      <div class="src" id="srcLine"></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+  </section>
+  <nav class="tabs" id="tabs"></nav>
+  <div id="view"></div>
+  <footer>
+    Un appel d'offres ouvert se gagne en déposant la candidature sur la plateforme de l'acheteur, avant la date limite. L'e-mail sert à se faire connaître, demander une visite ou poser une question. Les « acheteurs à démarcher » sont des marchés varois clos ou attribués (liste établie le 18 novembre 2026). Les dates de renouvellement sont estimées à partir des durées publiées. Source : BOAMP, données officielles de la DILA.
+  </footer>
+</main>
+
+<!-- Fiche de réponse -->
+<div class="ov" id="ovAccept" role="dialog" aria-modal="true">
+  <div class="modal wide">
+    <div class="m-head">
+      <div>
+        <div class="eyebrow" id="aKind">Fiche de réponse</div>
+        <h2 id="aTitle"></h2>
+        <p class="sub" id="aSub"></p>
+      </div>
+      <button class="x" type="button" data-close aria-label="Fermer">✕</button>
+    </div>
+    <div class="m-grid">
+      <div>
+        <div class="step-h"><span>1</span>Le message à envoyer</div>
+        <div class="tpls" id="aTpls"></div>
+        <p class="hint" id="aTplHint"></p>
+        <div class="fld"><label for="aTo">Destinataire</label><input id="aTo" placeholder="adresse e-mail"></div>
+        <div class="fld"><label for="aSubj">Objet</label><input id="aSubj"></div>
+        <div class="fld"><label for="aBody">Message (modifiable)</label><textarea id="aBody"></textarea></div>
+        <div class="m-actions left">
+          <a class="pill gold" id="aGmail" href="#" target="_blank" rel="noopener">Envoyer avec Gmail</a>
+          <a class="pill" id="aMail" href="#">Ma messagerie</a>
+          <button class="pill" type="button" id="aCopy">Copier</button>
+          <a class="pill" id="aTel" href="#" hidden>📞 Appeler</a>
+        </div>
+        <p class="hint" id="aHint"></p>
+      </div>
+      <div>
+        <div class="step-h"><span>2</span>Les étapes</div>
+        <div id="aChecklist" class="checklist"></div>
+        <div class="links" id="aLinks"></div>
+        <div class="fld" style="margin-top:14px"><label for="aNote">Note interne</label><input id="aNote" placeholder="ex. : visite prévue mardi 10 h"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Rejet -->
+<div class="ov" id="ovReject" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="eyebrow">Rejeter l'offre</div>
+    <h2 id="rTitle"></h2>
+    <p class="sub">Pourquoi ? Le motif aide à affiner la veille.</p>
+    <div class="reasons" id="rReasons"></div>
+    <div class="fld"><label for="rNote">Commentaire (facultatif)</label><input id="rNote" placeholder="ex. : on repasse l'an prochain"></div>
+    <div class="m-actions">
+      <button class="pill" type="button" data-close>Annuler</button>
+      <button class="pill ko" type="button" id="rOk">Rejeter l'offre</button>
+    </div>
+  </div>
+</div>
+
+<!-- Alertes -->
+<div class="ov" id="ovAlerts" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="m-head">
+      <div><div class="eyebrow">Notifications en temps réel</div><h2>Recevoir les alertes sur le téléphone</h2></div>
+      <button class="x" type="button" data-close aria-label="Fermer">✕</button>
+    </div>
+    <p class="sub">Dès qu'un appel d'offres de sécurité est publié dans le Var, une notification arrive sur le téléphone. Le robot vérifie le BOAMP toutes les 15 minutes, même quand l'application est fermée. Il envoie aussi un rappel 3 jours avant la date limite des offres acceptées.</p>
+    <ol class="howto-list">
+      <li>Installez l'application gratuite <b>ntfy</b> :
+        <div class="m-actions left" style="margin-top:8px">
+          <a class="pill sm" href="https://apps.apple.com/app/ntfy/id1625396347" target="_blank" rel="noopener">iPhone (App Store)</a>
+          <a class="pill sm" href="https://play.google.com/store/apps/details?id=io.heckel.ntfy" target="_blank" rel="noopener">Android (Google Play)</a>
+        </div>
+      </li>
+      <li>Dans ntfy, appuyez sur <b>+</b> puis abonnez-vous au sujet :
+        <div class="topic"><code id="topicName"></code><button class="pill sm" type="button" id="copyTopic">Copier</button></div>
+      </li>
+      <li>Vérifiez que tout marche :
+        <div class="m-actions left" style="margin-top:8px"><button class="pill gold sm" type="button" id="testPush">Envoyer une notification de test</button></div>
+      </li>
+    </ol>
+    <p class="hint">Gardez ce nom de sujet pour vous : toute personne qui le connaît reçoit les mêmes alertes. Sur iPhone, autorisez les notifications quand ntfy le demande.</p>
+  </div>
+</div>
+
+<!-- Coordonnées -->
+<div class="ov" id="ovSettings" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="eyebrow">Insérées dans chaque message</div>
+    <h2>Nos coordonnées</h2>
+    <p class="sub">Le numéro d'autorisation CNAPS et le SIRET sont demandés par la plupart des acheteurs.</p>
+    <div class="fld"><label for="sSig">Signature</label><input id="sSig"></div>
+    <div class="fld"><label for="sC1">Contact 1</label><input id="sC1"></div>
+    <div class="fld"><label for="sC2">Contact 2</label><input id="sC2"></div>
+    <div class="fld"><label for="sMail">E-mail</label><input id="sMail"></div>
+    <div class="fld"><label for="sSite">Site</label><input id="sSite"></div>
+    <div class="fld"><label for="sCnaps">N° autorisation CNAPS (AUT-…)</label><input id="sCnaps" placeholder="à compléter"></div>
+    <div class="fld"><label for="sSiret">SIRET</label><input id="sSiret" placeholder="à compléter"></div>
+    <div class="fld"><label for="sNtfy">Sujet des alertes ntfy</label><input id="sNtfy" placeholder="helix-veille-…" autocomplete="off"></div>
+    <div class="m-actions">
+      <button class="pill" type="button" data-close>Fermer</button>
+      <button class="pill gold" type="button" id="sSave">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ajout manuel -->
+<div class="ov" id="ovAdd" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="m-head">
+      <div><div class="eyebrow">Offre reçue par une alerte de plateforme</div><h2>Ajouter une offre</h2></div>
+      <button class="x" type="button" data-close aria-label="Fermer">✕</button>
+    </div>
+    <p class="sub">Elle sera visible des deux dirigeants et suivie comme les autres : accepter ou rejeter, message, étapes, rappel avant la date limite.</p>
+    <form id="addForm">
+      <div class="fld"><label for="mTitre">Objet du marché</label><input id="mTitre" required placeholder="ex. : Gardiennage du parc des expositions"></div>
+      <div class="fld"><label for="mAch">Acheteur</label><input id="mAch" required placeholder="ex. : Commune de Saint-Maximin"></div>
+      <div class="two-f">
+        <div class="fld"><label for="mVille">Commune</label><input id="mVille" placeholder="ex. : Saint-Maximin-la-Sainte-Baume"></div>
+        <div class="fld"><label for="mLim">Date limite</label><input id="mLim" type="datetime-local"></div>
+      </div>
+      <div class="two-f">
+        <div class="fld"><label for="mCat">Métier</label><select id="mCat" class="sel"><option value="gardiennage">Gardiennage</option><option value="evenementiel">Événementiel</option><option value="medico">Médico-social</option><option value="incendie">SSIAP · Sûreté</option></select></div>
+        <div class="fld"><label for="mOrig">Trouvée sur</label><input id="mOrig" list="origines" placeholder="ex. : marches-securises.fr"></div>
+      </div>
+      <datalist id="origines"><option value="marches-securises.fr"><option value="achatpublic.com"><option value="marches-publics.info (AWS)"><option value="PLACE (État)"><option value="e-marchespublics.com"><option value="Marchés Online"><option value="France Marchés"><option value="Var-Matin (annonce légale)"><option value="Appel direct d'un client"></datalist>
+      <div class="fld"><label for="mUrl">Lien vers la consultation</label><input id="mUrl" type="url" placeholder="https://…"></div>
+      <div class="fld"><label for="mMail">E-mail de l'acheteur (facultatif)</label><input id="mMail" type="email"></div>
+      <div class="fld"><label for="mRes">Résumé (facultatif)</label><input id="mRes"></div>
+      <div class="m-actions"><button class="pill" type="button" data-close>Annuler</button><button class="pill gold" type="submit">Ajouter l'offre</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

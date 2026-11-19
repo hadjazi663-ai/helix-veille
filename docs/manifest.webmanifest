@@ -1,0 +1,19 @@
+{
+ "name": "Helix Veille · Appels d'offres sécurité du Var",
+ "short_name": "Helix Veille",
+ "description": "Les appels d'offres de sécurité et de gardiennage du Var, en temps réel, pour Helix Sécurité.",
+ "lang": "fr",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "background_color": "#100F0E",
+ "theme_color": "#100F0E",
+ "icons": [
+  {
+   "src": "icons/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "any maskable"
+  }
+ ]
+}
