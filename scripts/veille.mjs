@@ -4,7 +4,7 @@
 // 3. envoie une notification ntfy pour chaque NOUVELLE offre
 // 4. met à jour data/offres.json (relu par la tâche Claude qui alimente l'application)
 import { readFile, writeFile } from "node:fs/promises";
-import { fetchOpenOffers, CATS, score } from "../lib/boamp.js";
+import { fetchOpenOffers, fetchNearby13, CATS, score } from "../lib/boamp.js";
 import { fetchTedOffers, isDuplicate } from "./ted.mjs";
 
 const { NTFY_TOPIC, APP_URL = "", NTFY_SERVER = "https://ntfy.sh" } = process.env;
@@ -37,24 +37,26 @@ async function main() {
   try { state = JSON.parse(await readFile(STATE, "utf8")); } catch (e) { }
   const firstRun = !state.maj;
 
-  const [boamp, ted] = await Promise.all([
+  const [boamp, near13, ted] = await Promise.all([
     fetchOpenOffers().catch(e => { console.error("BOAMP :", e.message); return null; }),
+    fetchNearby13().catch(e => { console.error("BOAMP 13 :", e.message); return []; }),
     fetchTedOffers().catch(e => { console.error("TED :", e.message); return []; })
   ]);
   if (!boamp) { console.error("BOAMP injoignable : nouvel essai au prochain passage."); return; }
   const all = [...boamp];
   for (const t of ted) if (!isDuplicate(t, all)) all.push(t);
+  for (const o of near13) if (!all.some(a => a.id === o.id)) all.push(o);  // Bouches-du-Rhône proches : enregistrées, sans notification
   console.log(`Offres ouvertes : ${boamp.length} BOAMP + ${all.length - boamp.length} TED (hors doublons)`);
 
   const now = new Date().toISOString();
-  const fresh = all.filter(o => !state.offres[o.id]);
+  const fresh = all.filter(o => !state.offres[o.id] && o.dep !== "13");
   const offres = {};
   // on garde les offres connues encore ouvertes + celles closes depuis moins de 30 jours (pour l'historique)
   for (const [id, o] of Object.entries(state.offres)) if (!o.limite || new Date(o.limite) > Date.now() - 30 * 864e5) offres[id] = o;
   for (const o of all) offres[o.id] = { ...o, first_seen: state.offres[o.id]?.first_seen || now };
 
   if (firstRun) {
-    await push({ title: "Helix Veille est activée", message: `${all.length} appel(s) d'offres sécurité ouvert(s) dans le Var. Vous serez prévenu à chaque nouvelle publication.`, tags: ["white_check_mark"], click: APP_URL || undefined });
+    await push({ title: "Helix Veille est activée", message: `${all.filter(o => o.dep !== "13").length} appel(s) d'offres sécurité ouvert(s) dans le Var. Vous serez prévenu à chaque nouvelle publication.`, tags: ["white_check_mark"], click: APP_URL || undefined });
   } else if (fresh.length > 8) {
     await push({ title: `${fresh.length} nouveaux appels d'offres sécurité`, message: fresh.slice(0, 8).map(o => "• " + o.titre).join("\n"), tags: ["rotating_light"], priority: 5, click: APP_URL || undefined });
   } else {
@@ -62,7 +64,7 @@ async function main() {
   }
   console.log(`Nouvelles offres notifiées : ${firstRun ? 0 : fresh.length}`);
 
-  const changed = firstRun || JSON.stringify(offres) !== JSON.stringify(state.offres);
+  const changed = fresh.length || firstRun || Object.keys(offres).length !== Object.keys(state.offres).length;
   if (changed) await writeFile(STATE, JSON.stringify({ maj: now, offres }, null, 1) + "\n");
   else console.log("Aucun changement.");
 }
