@@ -1,5 +1,6 @@
 // Helix Veille — application principale
 import { fetchOpenOffers, fetchNearby13, CATS, score, daysLeft, kmFrom } from "./boamp.js";
+import { PLAQUES as PLQ, drawPlaque, plaqueBlob } from "./plaques.js";
 
 const CFG = window.HELIX_CONFIG || {};
 const $ = s => document.querySelector(s);
@@ -340,42 +341,41 @@ ${coordBlock()}`
     })
   }
 };
-// Plaques de présentation (une par métier) : jointes à chaque message
-const PLAQUES = { gardiennage: "Gardiennage et surveillance de sites", evenementiel: "Sécurité événementielle", medico: "Sécurité des établissements sociaux, médico-sociaux et médicaux" };
-const PLAQUE_BASE = "https://helix-veille.github.io/plaques/";
+// Plaques de présentation (une par catégorie, dessinées par plaques.js) : jointes à chaque message
+const PLAQUE_PAGE = "https://helix-veille.github.io/plaque.html#";
 function plaqueKey(o) {
-  if (o.kind === "etab") return o.grp === "lycee" || o.grp === "college" ? "gardiennage" : "medico";
-  return o.cat === "evenementiel" ? "evenementiel" : o.cat === "medico" ? "medico" : "gardiennage";
+  if (o.kind === "etab") return PLQ[o.grp] ? o.grp : "medico";
+  return PLQ[o.cat] ? o.cat : "gardiennage";
 }
 function withPlaque(e, o, tpl) {
   if (tpl === "soustraitance" || !e.body) return e;
-  const k = plaqueKey(o), line = `Vous trouverez notre plaquette « ${PLAQUES[k]} » ici : ${PLAQUE_BASE}${k}.jpg`;
+  const k = plaqueKey(o), line = `Notre présentation en une image : ${PLAQUE_PAGE}${k}`;
   const i = e.body.lastIndexOf("Bien cordialement");
   return { ...e, body: i < 0 ? e.body + "\n\n" + line : e.body.slice(0, i) + line + "\n\n" + e.body.slice(i) };
 }
-function renderPlaque(o, tpl) {
+async function renderPlaque(o, tpl) {
   let box = $("#aPlaque");
   if (!box) { box = document.createElement("div"); box.id = "aPlaque"; $("#aHint").after(box); }
   if (tpl === "soustraitance") { box.hidden = true; return; }
-  const k = plaqueKey(o), url = "plaques/" + k + ".jpg";
-  box.hidden = false;
+  const k = plaqueKey(o); box.hidden = false; box.dataset.k = k;
   box.innerHTML = `<div style="display:flex;gap:12px;align-items:flex-start;margin-top:12px;padding:10px;border:1px solid rgba(201,154,90,.35);border-radius:12px">
-    <a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="Plaque ${esc(PLAQUES[k])}" style="width:86px;border-radius:6px;display:block" onerror="this.closest('#aPlaque').hidden=true"></a>
-    <div style="flex:1"><b>Plaque jointe : ${esc(PLAQUES[k])}</b>
-      <p class="hint" style="margin-top:4px">Le lien est déjà dans le message. Pour qu'elle s'affiche en grand dans le mail : « Copier pour Gmail », puis dans Gmail cliquez dans le message et collez (Ctrl+V, ou appui long → Coller sur téléphone).</p>
-      <div class="m-actions left" style="margin-top:8px"><button class="pill sm gold" id="pCopy" data-plaque="${k}" type="button">Copier pour Gmail</button><a class="pill sm" href="${url}" download="Helix-Securite-${k}.jpg">Télécharger</a></div>
+    <a href="plaque.html#${k}" target="_blank" rel="noopener"><img id="aPlaqueImg" alt="Plaque" style="width:150px;border-radius:6px;display:block;background:#17130f;aspect-ratio:3/2"></a>
+    <div style="flex:1"><b>Plaque jointe : ${esc(PLQ[k].tag)}</b>
+      <p class="hint" style="margin-top:4px">Le lien est déjà dans le message. Pour l'afficher dans le mail : « Copier pour Gmail », puis dans Gmail cliquez dans le message et collez (Ctrl+V, ou appui long → Coller).</p>
+      <div class="m-actions left" style="margin-top:8px"><button class="pill sm gold" id="pCopy" data-plaque="${k}" type="button">Copier pour Gmail</button><button class="pill sm" id="pDown" data-plaque="${k}" type="button">Télécharger</button></div>
     </div></div>`;
+  try { const c = await drawPlaque(k); if (box.dataset.k === k) $("#aPlaqueImg").src = c.toDataURL("image/jpeg", .85); } catch (e) { }
 }
 async function copyPlaque(k) {
   try {
-    const png = (async () => {
-      const bmp = await createImageBitmap(await (await fetch("plaques/" + k + ".jpg")).blob());
-      const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height; c.getContext("2d").drawImage(bmp, 0, 0);
-      return await new Promise(r => c.toBlob(r, "image/png"));
-    })();
-    await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": plaqueBlob(k) })]);
     toast("Plaque copiée : collez-la dans le message Gmail");
-  } catch (err) { toast("Copie impossible sur cet appareil : utilisez « Télécharger » puis joignez le fichier"); }
+  } catch (err) { toast("Copie impossible sur cet appareil : utilisez « Télécharger » puis joignez l'image"); }
+}
+async function downloadPlaque(k) {
+  const b = await plaqueBlob(k), a = document.createElement("a");
+  a.href = URL.createObjectURL(b); a.download = "Helix-Securite-" + k + ".png"; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 const tplsFor = o => Object.entries(TEMPLATES).filter(([, t]) => t.for === "all" || t.for === o.kind);
 
@@ -498,7 +498,7 @@ function sourceLabel(o) {
   return "";
 }
 function avisLink(o) {
-  if (o.manual) return "";
+  if (o.manual || o.kind === "etab") return "";
   if (o.source === "ted") return `<a href="${esc(o.avis)}" target="_blank" rel="noopener">Avis TED ↗</a>`;
   return `<a href="${esc(o.avis || BOAMP(o.id))}" target="_blank" rel="noopener">Avis BOAMP ${esc(o.id)} ↗</a>`;
 }
@@ -834,6 +834,7 @@ document.addEventListener("click", async e => {
   if (t.dataset.close !== undefined) { closeAll(); render(); return; }
   if (t.id === "aGmail" || t.id === "aMail") { setTimeout(markSentIfNeeded, 400); return; }
   if (t.id === "pCopy") { copyPlaque(t.dataset.plaque); return; }
+  if (t.id === "pDown") { downloadPlaque(t.dataset.plaque); return; }
   if (t.id === "aCopy") { await copy(`À : ${$("#aTo").value}\nObjet : ${$("#aSubj").value}\n\n${$("#aBody").value}`); return; }
   if (t.dataset.copy) { copy(document.getElementById(t.dataset.copy).textContent); return; }
   if (t.id === "btnAlerts") { $("#topicName").textContent = topic() || "(à renseigner dans ⚙ Coordonnées)"; $("#ovAlerts").classList.add("on"); return; }

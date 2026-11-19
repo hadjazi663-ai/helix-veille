@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Helix Sécurité · Présentation</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  html,body{margin:0;background:#0d0b09;color:#f6f1ea;font-family:Manrope,"Segoe UI",system-ui,sans-serif}
+  main{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px;box-sizing:border-box}
+  img{width:100%;max-width:1000px;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.6);aspect-ratio:3/2;background:#17130f}
+  .row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  a{display:inline-block;padding:12px 20px;border-radius:999px;border:1px solid #c99a5a;color:#f6f1ea;text-decoration:none;font-weight:700}
+  a.gold{background:#c99a5a;color:#0d0b09}
+  p{margin:0;color:rgba(246,241,234,.6);font-size:14px;text-align:center}
+</style></head>
+<body><main>
+  <img id="pl" alt="Présentation Helix Sécurité">
+  <div class="row">
+    <a class="gold" href="tel:+33757638520">📞 Jamael · 07 57 63 85 20</a>
+    <a class="gold" href="tel:+33651058990">📞 Boumedien · 06 51 05 89 90</a>
+    <a href="mailto:helixsecurite@gmail.com">✉ helixsecurite@gmail.com</a>
+  </div>
+  <p>Helix Sécurité · Sécurité privée · Brignoles (Var) · Interventions dans toute la région PACA</p>
+</main>
+<script type="module">
+  import { PLAQUES, drawPlaque } from "./plaques.js";
+  async function show() {
+    const k = decodeURIComponent(location.hash.slice(1)) || "gardiennage";
+    const c = await drawPlaque(PLAQUES[k] ? k : "gardiennage");
+    const img = document.getElementById("pl"); img.src = c.toDataURL("image/png");
+    img.alt = "Helix Sécurité · " + (PLAQUES[k] || PLAQUES.gardiennage).tag;
+  }
+  show(); addEventListener("hashchange", show);
+</script>
+</body></html>
