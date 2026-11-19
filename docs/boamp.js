@@ -9,7 +9,11 @@ export const MAX13 = 70;
 const KEYWORDS = [
   "gardiennage", "agents de sécurité", "agent de sécurité", "sûreté", "maîtres-chiens", "maître-chien",
   "SSIAP", "rondes", "sécurité événementielle", "sécurité privée", "contrôle d'accès", "prévention incendie",
-  "levée de doute", "surveillance humaine", "surveillance physique"
+  "levée de doute", "surveillance humaine", "surveillance physique",
+  // Établissements sociaux, médico-sociaux, hospitaliers et internats (veille de nuit, sécurité des résidents)
+  "veille de nuit", "veilleur de nuit", "veilleurs de nuit", "surveillant de nuit", "surveillants de nuit", "surveillance de nuit",
+  "agent de veille", "agents de veille", "sécurité hospitalière", "CHRS", "foyer", "internat", "hébergement d'urgence",
+  "centre hospitalier", "EHPAD", "maison d'enfants", "MECS"
 ];
 
 /** Requête ODSQL : Var + mots-clés sécurité (+ consultations encore ouvertes). */
@@ -53,12 +57,16 @@ export async function fetchNearby13(fetchImpl = fetch) {
 
 // ---------- Pertinence ----------
 const STRONG = /gardiennage|agents? de (s[ée]curit[ée]|surveillance|pr[ée]vention)|s[ée]curit[ée] (priv[ée]e|[ée]v[ée]nementielle|des (sites|b[aâ]timents|locaux|biens|personnes))|ma[iî]tres?[- ]chiens?|cynophil|\brondes?\b|s[uû]ret[ée]|ssiap|pr[ée]vention (incendie|et (de )?s[ée]curit)|contr[ôo]le d.acc[eè]s|surveillance (humaine|physique|de sites?|des sites|des b[aâ]timents|des locaux|des parkings?|de nuit|et (de )?gardiennage)|lev[ée]e de doute|d[ée]clenchement d.alarme|accueil s[ée]curitaire|filtrage/i;
-const EXCLUDE = /\btravaux\b|maintenance|fourniture|formation|vid[ée]o ?(protection|surveillance)|installation|\b[ée]tudes?\b|ma[iî]trise d.(oe|œ)uvre|assurance|nettoyage|v[êe]tements|\bEPI\b|d[ée]fibrillat|extincteur|logiciel|t[ée]l[ée]com|falaise|talus|versant|fourri[eè]re|coordonnateur|\bCSPS\b|bancaire|m[ée]decine|restauration/i;
+// Établissements visés (hébergement social, médico-social, santé, internats)
+const SECTOR = /\bchrs\b|foyers?|internats?|h[ée]bergement d.urgence|centres? d.h[ée]bergement|h[ôo]pita|hospitali|ehpad|\bmecs\b|maisons? d.enfants|\bime\b|\besat\b|\bfam\b|\bmas\b|r[ée]sidences? sociales?|pensions? de famille|accueil de jour|demandeurs d.asile|\bcada\b|\bhuda\b|centres? maternels?|m[ée]dico|sanitaire et social/i;
+// Mission de sécurité dans ces établissements (veille de nuit, surveillance, agents de sécurité…)
+const SECTOR_JOB = /veill(e|eurs?|euses?)( de nuit| active| s[ée]curit)|surveillants? de nuit|agents? de (veille|s[ée]curit|pr[ée]vention|surveillance)|surveillance (de nuit|humaine|physique|des (locaux|sites|b[aâ]timents|r[ée]sidents|usagers))|gardiennage|s[ée]curit[ée] (des (r[ée]sidents|patients|personnes|usagers|[ée]tablissements?|sites?|locaux)|et (de )?(surveillance|pr[ée]vention|gardiennage))|prestations? de s[ée]curit/i;
+const EXCLUDE = /\btravaux\b|maintenance|fourniture|formation|vid[ée]o ?(protection|surveillance)|installation|\b[ée]tudes?\b|ma[iî]trise d.(oe|œ)uvre|assurance|nettoyage|v[êe]tements|\bEPI\b|d[ée]fibrillat|extincteur|logiciel|t[ée]l[ée]com|falaise|talus|versant|fourri[eè]re|coordonnateur|\bCSPS\b|bancaire|m[ée]decine|restauration|r[ée]fection|toiture|[ée]tanch[ée]it|ma[iî]trise (d.)?(oe|œ)uvre|restructuration|\bextension\b|\bconcours\b/i;
 
 export function isRelevant(r) {
   const objet = r.objet || "";
   const desc = r.descripteur_libelle || [];
-  const human = desc.includes("Gardiennage") || STRONG.test(objet);
+  const human = desc.includes("Gardiennage") || STRONG.test(objet) || (SECTOR.test(objet) && SECTOR_JOB.test(objet)) || /veill(e|eurs?) de nuit|surveillants? de nuit/i.test(objet);
   if (!human) return false;
   if (EXCLUDE.test(objet) && !/gardiennage|agents? de s[ée]curit/i.test(objet)) return false;
   return true;
@@ -66,7 +74,7 @@ export function isRelevant(r) {
 
 export function categorize(text) {
   const t = (text || "").toLowerCase().replace(/s[ée]curit[ée] sociale/g, "");
-  if (/foyer|ehpad|h[ôo]pital|hospitalier|m[ée]dico|social|ccas|\bsoins?\b|sant[ée]|r[ée]sidences? sociales?|adoma|h[ée]bergement d.urgence|accueil de jour/.test(t)) return "medico";
+  if (/foyer|ehpad|h[ôo]pital|hospitali|m[ée]dico|social|ccas|\bsoins?\b|sant[ée]|r[ée]sidences? sociales?|adoma|h[ée]bergement|accueil de jour|\bchrs\b|internat|\bmecs\b|maisons? d.enfants|\bime\b|\besat\b|\bcada\b|\bhuda\b|demandeurs d.asile|veill(e|eurs?) de nuit|surveillants? de nuit|pensions? de famille/.test(t)) return "medico";
   if (/[ée]v[ée]nement|manifestation|festiv|congr[eè]s|spectacle|concert|\bsalons?\b|\bf[eê]tes?\b|estival/.test(t)) return "evenementiel";
   if (/ssiap|incendie/.test(t) && !/gardiennage/.test(t)) return "incendie";
   if (/gardiennage|\brondes?\b|surveillance|alarme|agents? de s[ée]curit|ma[iî]tres?[- ]chiens?/.test(t)) return "gardiennage";
@@ -175,7 +183,7 @@ export function normalize(r, dep = DEP) {
 export const CATS = {
   gardiennage: { label: "Gardiennage", cls: "p1", base: 50 },
   evenementiel: { label: "Événementiel", cls: "p2", base: 40 },
-  medico: { label: "Médico-social", cls: "p3", base: 40 },
+  medico: { label: "Médico-social · Hébergement", cls: "p3", base: 50 },
   incendie: { label: "SSIAP · Sûreté", cls: "", base: 25 }
 };
 export function daysLeft(o, now = Date.now()) { return o.limite ? (new Date(o.limite) - now) / 864e5 : null; }
