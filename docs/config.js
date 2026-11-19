@@ -5,7 +5,7 @@
 window.HELIX_CONFIG = {
   // Base de données partagée (Supabase → Project Settings → API)
   supabaseUrl: "https://ekekuwbbndgctawbgwau.supabase.co",
-  supabaseAnonKey: "",    // ← coller ici la « Publishable key » (Supabase → Project Settings → API Keys)
+  supabaseAnonKey: "sb_publishable_bOvnXRMypgLhKy7gBtAxrA_fB-5-I0Z",    // ← coller ici la « Publishable key » (Supabase → Project Settings → API Keys)
 
   // Alertes sur téléphone (application ntfy)
   ntfyServer: "https://ntfy.sh",
