@@ -22,6 +22,9 @@ const REASONS = ["Trop loin", "Trop gros pour nous", "Habilitation requise", "Pa
 
 // ---------- État ----------
 let live = [], liveAt = null, liveError = null, prospects = [], notes = {}, extra = [];
+let etabs = [], etabMaj = null, etabGroups = {};
+const FE = { q: "", grp: "all", internat: false, st: "todo", sort: "prio", limit: 60 };
+const REASONS_ET = ["Déjà équipé", "Pas intéressé", "Trop loin", "Pas de besoin la nuit", "Fermé / introuvable", "Autre"];
 let decisions = {}, settings = { ...DEFAULT_SETTINGS };
 let tab = "ao", current = null, rejectReason = "", newIds = new Set();
 const F = { q: "", cat: "all", st: "todo", sort: "score", showClosed: false };
@@ -176,6 +179,7 @@ function notifyFresh(fresh) {
 
 function allOffers() {
   const map = new Map();
+  etabs.forEach(o => map.set(o.id, o));
   prospects.forEach(o => map.set(o.id, o));
   extra.forEach(o => map.set(o.id, o));
   live.forEach(o => map.set(o.id, { ...(map.get(o.id) || {}), ...o }));
@@ -299,6 +303,26 @@ Bien cordialement,
 ${coordBlock()}`
     })
   },
+  etablissement: {
+    label: "Présentation à l'établissement", for: "etab",
+    when: "Premier contact avec la direction. Le plus efficace : envoyer ce message, puis appeler l'accueil deux ou trois jours après pour demander un rendez-vous.",
+    build: o => ({
+      subj: `Helix Sécurité · ${o.grp === "lycee" || o.grp === "college" ? "Sécurité de votre établissement" : "Veille de nuit et sécurité"} · ${o.titre}`,
+      body: `Madame, Monsieur,
+
+Helix Sécurité est une société de sécurité privée basée à Brignoles${o.km != null && o.km > 2 ? `, à environ ${o.km} km de ${o.ville}` : ""}. Nous accompagnons les établissements comme le vôtre en proposant ${offreEtab(o)}.
+
+${METHODE}
+
+Nous intervenons aussi bien de façon ponctuelle (remplacement, renfort, besoin urgent dès le soir même) que dans la durée.
+
+Seriez-vous disponible pour un court échange téléphonique ou une rencontre sur place, afin de voir ensemble si nous pouvons vous être utiles ?
+
+Bien cordialement,
+
+${coordBlock()}`
+    })
+  },
   relance: {
     label: "Relance", for: "all",
     when: "Environ 15 jours après un premier message resté sans réponse.",
@@ -365,7 +389,8 @@ function renderTabs() {
   const n13 = list.filter(o => o.kind === "ao" && o.dep === "13" && !isClosed(o) && statusOf(o.id) === "todo").length;
   const nPr = list.filter(o => o.kind === "prospect" && statusOf(o.id) === "todo").length;
   const nSuivi = Object.values(decisions).filter(d => d.status !== "rejected").length;
-  const T = [["ao", "Appels d'offres", nAo, nNew], ["ao13", "Bouches-du-Rhône", n13], ["prospect", "À démarcher", nPr], ["suivi", "Suivi des réponses", nSuivi], ["messages", "Modèles de messages", null], ["sources", "Sources", null], ["recrutement", "Recrutement", null]];
+  const nEt = etabs.filter(o => statusOf(o.id) === "todo").length;
+  const T = [["ao", "Appels d'offres", nAo, nNew], ["ao13", "Bouches-du-Rhône", n13], ["prospect", "À démarcher", nPr], ["etab", "Établissements", nEt], ["suivi", "Suivi des réponses", nSuivi], ["messages", "Modèles de messages", null], ["sources", "Sources", null], ["recrutement", "Recrutement", null]];
   $("#tabs").innerHTML = T.map(([k, l, n, nn]) => `<button class="tab ${tab === k ? "on" : ""}" data-tab="${k}" type="button">${l}${n !== null ? `<span class="n ${nn ? "new" : ""}">${nn ? nn + " nouv." : n}</span>` : ""}</button>`).join("");
 }
 function filtersHtml(kind) {
@@ -462,6 +487,79 @@ function listView(kind) {
   const emptyMsg = liveError && !live.length && kind === "ao" ? "Le BOAMP est injoignable pour le moment. Réessayez dans quelques minutes." : "Aucune offre ne correspond à ces filtres.";
   return filtersHtml(kind) + intro + (list.length ? `<div class="grid">${list.map(cardHtml).join("")}</div>` : `<div class="empty">${emptyMsg}</div>`);
 }
+// =====================================================================
+//  ÉTABLISSEMENTS À DÉMARCHER (FINESS + annuaire de l'Éducation nationale)
+// =====================================================================
+const ETAB_ICON = { hebergement: "🏠", enfance: "🧒", sante: "🏥", handicap: "♿", agees: "👵", lycee: "🎓", college: "🏫" };
+function etabView() {
+  if (!etabs.length) return `<div class="empty">La liste des établissements est en cours de préparation. Revenez dans quelques minutes.</div>`;
+  let list = etabs.slice();
+  if (FE.grp !== "all") list = list.filter(o => o.grp === FE.grp);
+  if (FE.internat) list = list.filter(o => o.internat);
+  if (FE.st !== "all") list = list.filter(o => { const s = statusOf(o.id); return FE.st === "accepted" ? (s !== "todo" && s !== "rejected") : s === FE.st; });
+  if (FE.q.trim()) { const q = FE.q.toLowerCase(); list = list.filter(o => [o.titre, o.type, o.ville, o.cp, o.adresse].join(" ").toLowerCase().includes(q)); }
+  if (FE.sort === "km") list.sort((a, b) => (a.km ?? 999) - (b.km ?? 999));
+  else if (FE.sort === "nom") list.sort((a, b) => a.titre.localeCompare(b.titre, "fr"));
+  else list.sort((a, b) => b.prio - a.prio || (a.km ?? 999) - (b.km ?? 999));
+  const count = g => etabs.filter(o => g === "all" || o.grp === g).length;
+  const groups = [["all", "Tout"], ...Object.entries(etabGroups)];
+  const shown = list.slice(0, FE.limit);
+  return `<div class="filters">
+    <input class="search" id="eq" placeholder="Rechercher un nom, une ville, un code postal…" value="${esc(FE.q)}">
+    ${groups.map(([k, l]) => `<button class="chip ${FE.grp === k ? "on" : ""}" data-egrp="${k}" type="button">${k !== "all" ? (ETAB_ICON[k] || "") + " " : ""}${esc(l)} <small>${count(k)}</small></button>`).join("")}
+    <button class="chip ${FE.internat ? "on" : ""}" id="eint" type="button">🛏 Avec internat</button>
+    <select class="sel" id="est">
+      <option value="todo" ${FE.st === "todo" ? "selected" : ""}>À contacter</option>
+      <option value="accepted" ${FE.st === "accepted" ? "selected" : ""}>En cours</option>
+      <option value="rejected" ${FE.st === "rejected" ? "selected" : ""}>Écartés</option>
+      <option value="all" ${FE.st === "all" ? "selected" : ""}>Tous</option>
+    </select>
+    <select class="sel" id="esort">
+      <option value="prio" ${FE.sort === "prio" ? "selected" : ""}>Tri : priorité</option>
+      <option value="km" ${FE.sort === "km" ? "selected" : ""}>Tri : distance</option>
+      <option value="nom" ${FE.sort === "nom" ? "selected" : ""}>Tri : nom</option>
+    </select>
+  </div>
+  <p class="intro">Tous les établissements du Var qui peuvent avoir besoin d'une veille de nuit ou d'agents de sécurité : hébergement social et d'urgence (CHRS, demandeurs d'asile, foyers), enfance (MECS, foyers de l'enfance), handicap, EHPAD, hôpitaux et cliniques, collèges et lycées. Ils achètent souvent sur devis, sans appel d'offres : c'est en les contactant qu'on décroche ces contrats. <b>Contacter</b> ouvre un message de présentation adapté au type d'établissement.${etabMaj ? ` <span class="who">Sources officielles : répertoire FINESS et annuaire de l'Éducation nationale · mise à jour du ${fmtDate(etabMaj)}.</span>` : ""}</p>
+  ${shown.length ? `<div class="grid">${shown.map(etabCard).join("")}</div>` : `<div class="empty">Aucun établissement ne correspond à ces filtres.</div>`}
+  ${list.length > shown.length ? `<div style="text-align:center;margin:18px 0"><button class="pill" id="emore" type="button">Afficher plus (${list.length - shown.length} restants)</button></div>` : ""}`;
+}
+function etabCard(o) {
+  const st = statusOf(o.id), d = decisions[o.id];
+  const meta = [
+    `📍 ${esc([o.cp, o.ville].filter(Boolean).join(" "))}`, o.km != null ? (o.km <= 2 ? "À Brignoles" : `≈ ${o.km} km de Brignoles`) : "",
+    o.statut ? (o.statut === "public" ? "Public" : "Privé") : ""
+  ].filter(Boolean).map(x => `<span>${x}</span>`).join("");
+  const links = [
+    o.tel ? `<a href="tel:${esc(o.tel.replace(/[^\d+]/g, ""))}">📞 ${esc(o.tel)}</a>` : "",
+    o.email ? `<a href="mailto:${esc(o.email)}">✉ ${esc(o.email)}</a>` : "",
+    o.web ? `<a href="${esc(o.web)}" target="_blank" rel="noopener">Site ↗</a>` : "",
+    `<a href="https://www.google.com/maps/search/${encodeURIComponent([o.titre, o.adresse, o.cp, o.ville].filter(Boolean).join(" "))}" target="_blank" rel="noopener">Plan ↗</a>`
+  ].filter(Boolean).join("");
+  const act = st === "todo"
+    ? `<button class="pill gold sm" data-accept="${esc(o.id)}" type="button">✓ Contacter</button><button class="pill sm" data-reject="${esc(o.id)}" type="button">✕ Écarter</button>`
+    : `<div style="flex:1;min-width:160px"><span class="status ${st}">${esc(st === "rejected" ? "Écarté" : statusLabel(o, st))}${st === "rejected" && d.reason ? " · " + esc(d.reason) : ""}</span> <span class="who">${esc(whoTxt(d))}</span>${st !== "rejected" ? progressHtml(o, d) : ""}</div>
+       ${st !== "rejected" ? `<button class="pill sm gold" data-accept="${esc(o.id)}" type="button">Ouvrir la fiche</button>` : ""}<button class="pill sm" data-undo="${esc(o.id)}" type="button">Annuler</button>`;
+  return `<article class="card st-${st}" id="card-${esc(o.id)}">
+    <div class="c-top">
+      <span class="tag p3">${ETAB_ICON[o.grp] || ""} ${esc(etabGroups[o.grp] || o.grp)}</span>
+      ${o.internat ? `<span class="tag hot">Internat</span>` : ""}
+      <span class="score" title="Priorité pour Helix : type d'établissement et distance">${o.prio}<span class="bar"><i style="width:${o.prio}%"></i></span></span>
+    </div>
+    <h3>${esc(o.titre)}</h3>
+    <div class="buyer">${esc(o.type)}</div>
+    <div class="meta">${meta}</div>
+    ${o.adresse ? `<p class="res">${esc(o.adresse)}</p>` : ""}
+    <div class="note">${esc(o.note)}</div>
+    <div class="links">${links}</div>
+    <div class="actions">${act}</div>
+  </article>`;
+}
+function offreEtab(o) {
+  if (o.grp === "sante") return "des agents de sécurité pour vos urgences et vos accès, des rondes de nuit et, si besoin, des agents SSIAP";
+  if (o.grp === "lycee" || o.grp === "college") return "le contrôle des accès aux heures d'entrée et de sortie, la sécurisation de vos événements (portes ouvertes, examens, soirées)" + (o.internat ? " et la surveillance de nuit de votre internat" : "");
+  return "des veilleurs et agents de nuit choisis pour leur calme et leur sens de l'écoute face à un public fragile : présence rassurante, gestion des tensions, rondes et sécurité incendie, et remplacement de vos veilleurs en cas d'absence";
+}
 function suiviView() {
   const byId = new Map(allOffers().map(o => [o.id, o]));
   const rows = Object.values(decisions).map(d => ({ d, o: byId.get(d.offre_id) || d.offre })).filter(r => r.o)
@@ -471,7 +569,7 @@ function suiviView() {
     <thead><tr><th>Statut</th><th>Offre</th><th>Échéance</th><th>Avancement</th><th>Par · le</th><th></th></tr></thead>
     <tbody>${rows.map(({ d, o }) => `<tr>
       <td><span class="status ${d.status}">${esc(statusLabel(o, d.status))}</span>${d.reason ? `<br><span class="who">${esc(d.reason)}</span>` : ""}</td>
-      <td><b>${esc(o.titre)}</b><br><span class="who">${esc(o.acheteur)} · ${o.kind === "ao" ? "Appel d'offres" : "Prospect"}</span>${d.note ? `<br><span class="who">📝 ${esc(d.note)}</span>` : ""}</td>
+      <td><b>${esc(o.titre)}</b><br><span class="who">${esc(o.acheteur || o.type || "")} · ${o.kind === "ao" ? "Appel d'offres" : o.kind === "etab" ? "Établissement" : "Prospect"}</span>${d.note ? `<br><span class="who">📝 ${esc(d.note)}</span>` : ""}</td>
       <td class="who">${o.limite ? fmtDT(o.limite) : esc(o.renouv || "")}</td>
       <td style="min-width:110px">${d.status !== "rejected" ? progressHtml(o, d) : ""}</td>
       <td class="who">${esc(whoTxt(d))}</td>
@@ -579,6 +677,7 @@ function render() {
   renderKpis(); renderTabs();
   const v = $("#view");
   if (tab === "ao" || tab === "ao13" || tab === "prospect") v.innerHTML = listView(tab);
+  else if (tab === "etab") v.innerHTML = etabView();
   else if (tab === "suivi") v.innerHTML = suiviView();
   else if (tab === "messages") v.innerHTML = messagesView();
   else if (tab === "sources") v.innerHTML = sourcesView();
@@ -596,7 +695,7 @@ async function openAccept(id) {
   current = o;
   let d = decisions[id];
   if (!d || d.status === "rejected") {
-    const tpl = o.kind === "ao" ? "contact" : (o.titulaire ? "presentation" : "presentation");
+    const tpl = o.kind === "ao" ? "contact" : o.kind === "etab" ? "etablissement" : "presentation";
     const e = TEMPLATES[tpl].build(o);
     d = { offre_id: id, status: "accepted", template: tpl, to_addr: [o.email, o.email2].filter(Boolean).join(", "), subject: e.subj, body: e.body, checklist: [], note: "", reason: "", offre: snapshot(o) };
     await store.save(d); render();
@@ -619,7 +718,8 @@ function fillMessage(d) {
   $("#aTplHint").textContent = TEMPLATES[d.template]?.when || "";
   $("#aTo").value = d.to_addr || ""; $("#aSubj").value = d.subject || ""; $("#aBody").value = d.body || "";
   const hints = [];
-  if (!o.email && d.template !== "soustraitance") hints.push("Aucun e-mail n'est publié pour cet acheteur : passez par la plateforme ou par l'accueil de la collectivité.");
+  if (!o.email && o.kind === "etab") hints.push("Pas d'e-mail public pour cet établissement : appelez l'accueil (" + (o.tel || "numéro sur le plan") + ") pour demander l'adresse de la direction, ou passez par le site de l'association gestionnaire.");
+  else if (!o.email && d.template !== "soustraitance") hints.push("Aucun e-mail n'est publié pour cet acheteur : passez par la plateforme ou par l'accueil de la collectivité.");
   if (o.kind === "ao" && o.limite) hints.push("La réponse officielle se dépose sur la plateforme de l'acheteur avant le " + fmtDT(o.limite) + ".");
   $("#aHint").textContent = hints.join(" ");
   updateLinks();
@@ -674,12 +774,15 @@ document.addEventListener("click", async e => {
   if (!t) { if (e.target.classList?.contains("ov")) closeAll(); return; }
   if (t.dataset.tab) { tab = t.dataset.tab; F.st = "todo"; F.showClosed = false; history.replaceState(null, "", "#" + tab); render(); return; }
   if (t.dataset.cat) { F.cat = t.dataset.cat; render(); return; }
+  if (t.dataset.egrp) { FE.grp = t.dataset.egrp; FE.limit = 60; render(); return; }
+  if (t.id === "eint") { FE.internat = !FE.internat; FE.limit = 60; render(); return; }
+  if (t.id === "emore") { FE.limit += 60; render(); return; }
   if (t.id === "fclosed") { F.showClosed = !F.showClosed; render(); return; }
   if (t.dataset.accept) { openAccept(t.dataset.accept); return; }
   if (t.dataset.reject) {
     current = findOffer(t.dataset.reject); rejectReason = "";
     $("#rTitle").textContent = current.titre; $("#rNote").value = "";
-    $("#rReasons").innerHTML = REASONS.map(r => `<button class="chip" data-reason="${esc(r)}" type="button">${esc(r)}</button>`).join("");
+    $("#rReasons").innerHTML = (current.kind === "etab" ? REASONS_ET : REASONS).map(r => `<button class="chip" data-reason="${esc(r)}" type="button">${esc(r)}</button>`).join("");
     $("#ovReject").classList.add("on"); return;
   }
   if (t.dataset.reason) { rejectReason = t.dataset.reason; document.querySelectorAll("[data-reason]").forEach(b => b.classList.toggle("on", b === t)); return; }
@@ -725,6 +828,8 @@ function confirmUndo(btn) {
 document.addEventListener("change", async e => {
   if (e.target.id === "fst") { F.st = e.target.value; render(); }
   if (e.target.id === "fsort") { F.sort = e.target.value; render(); }
+  if (e.target.id === "est") { FE.st = e.target.value; FE.limit = 60; render(); }
+  if (e.target.id === "esort") { FE.sort = e.target.value; render(); }
   if (e.target.dataset.check !== undefined) {
     const d = decisions[current.id]; const cl = [...(d.checklist || [])]; cl[+e.target.dataset.check] = e.target.checked;
     await store.save({ ...d, checklist: cl, status: statusFromChecks(current, cl) }); renderChecklist(); render();
@@ -732,6 +837,7 @@ document.addEventListener("change", async e => {
 });
 document.addEventListener("input", e => {
   if (e.target.id === "fq") { F.q = e.target.value; const p = e.target.selectionStart; render(); const f = $("#fq"); f.focus(); f.setSelectionRange(p, p); }
+  if (e.target.id === "eq") { FE.q = e.target.value; FE.limit = 60; const p = e.target.selectionStart; render(); const f = $("#eq"); f.focus(); f.setSelectionRange(p, p); }
   if (["aTo", "aSubj", "aBody", "aNote"].includes(e.target.id)) { updateLinks(); saveDraftSoon(); }
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape") { closeAll(); render(); } });
@@ -756,9 +862,9 @@ function handleHash() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith("offre-")) {
     const id = h.slice(6), o = findOffer(id); if (!o) return;
-    tab = o.kind === "ao" ? (o.dep === "13" ? "ao13" : "ao") : "prospect"; F.st = "all"; F.cat = "all"; F.q = ""; render();
+    tab = o.kind === "ao" ? (o.dep === "13" ? "ao13" : "ao") : o.kind === "etab" ? "etab" : "prospect"; F.st = "all"; F.cat = "all"; F.q = ""; FE.st = "all"; FE.q = o.kind === "etab" ? o.titre : FE.q; render();
     const el = document.getElementById("card-" + id); if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 2500); }
-  } else if (["ao", "ao13", "prospect", "suivi", "messages", "sources", "recrutement"].includes(h)) { tab = h; render(); }
+  } else if (["ao", "ao13", "prospect", "etab", "suivi", "messages", "sources", "recrutement"].includes(h)) { tab = h; render(); }
 }
 window.addEventListener("hashchange", handleHash);
 
@@ -772,6 +878,7 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
 // =====================================================================
 async function start() {
   try { [prospects, notes] = await Promise.all([fetch("prospects.json").then(r => r.json()), fetch("notes.json").then(r => r.json())]); } catch (e) { }
+  fetch("etablissements.json", { cache: "no-cache" }).then(r => r.ok ? r.json() : null).then(j => { if (!j) return; etabs = j.etablissements || []; etabMaj = j.maj; etabGroups = j.groupes || {}; render(); }).catch(() => { });
   try { await store.loadAll(); }
   catch (e) {
     if (e.code === "non_membre") {
