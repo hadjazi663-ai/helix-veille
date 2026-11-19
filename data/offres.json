@@ -1,5 +1,5 @@
 {
- "maj": "2026-11-18T20:51:40.694Z",
+ "maj": "2026-11-19T00:58:38.734Z",
  "offres": {
   "26-104009": {
    "id": "26-104009",
@@ -120,6 +120,54 @@
    "duree": "180 jours",
    "hab": true,
    "first_seen": "2026-11-18T20:49:38.783Z"
+  },
+  "26-104999": {
+   "id": "26-104999",
+   "kind": "ao",
+   "source": "boamp",
+   "cat": "gardiennage",
+   "titre": "Prestations de sécurité, de gardiennage, de surveillance physique et de télésurveillance du matériel roulant (trains)",
+   "acheteur": "Région Provence-Alpes-Côte d'Azur",
+   "ville": "Marseille",
+   "dep": "13",
+   "km": 65,
+   "limite": "2026-12-03T15:00:00+00:00",
+   "parution": "2026-10-30",
+   "proc": "Procédure Ouverte",
+   "email": "servicedesmarches@maregionsud.fr",
+   "email2": "",
+   "tel": "0491575057",
+   "plateforme": "https://www.marches-publics.info/mpiaws/index.cfm?fuseaction=dematEnt.login&type=DCE&IDM=1896105",
+   "avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-104999",
+   "resume": "Détail des zones concernées par les prestations\nNice / Levens\nUtelle / Puget-Théniers\nEntrevaux / Méailles\nThorame Haute / Digne-les-Bains",
+   "montant": null,
+   "duree": "6 mois",
+   "hab": false,
+   "first_seen": "2026-11-19T00:58:38.734Z"
+  },
+  "26-110238": {
+   "id": "26-110238",
+   "kind": "ao",
+   "source": "boamp",
+   "cat": "evenementiel",
+   "titre": "Dans le cadre de ses missions d'accueil du public, d'organisation d'événements culturels et touristiques, ainsi que de la sécurisation de ses sites, l'Office de Tourisme, des Loisirs et des Congrès...",
+   "acheteur": "Office de tourisme et des congres de marseille",
+   "ville": "Marseille",
+   "dep": "13",
+   "km": 65,
+   "limite": "2026-12-18T12:00:00+00:00",
+   "parution": "2026-11-12",
+   "proc": "Procédure Adaptée",
+   "email": "",
+   "email2": "",
+   "tel": "",
+   "plateforme": "https://www.achatpublic.com/sdm/ent2/gen/ficheCsl.action?PCSLID=CSL_2026_ZUHKIMBKFv",
+   "avis": "https://www.boamp.fr/pages/avis/?q=idweb:26-110238",
+   "resume": "",
+   "montant": null,
+   "duree": null,
+   "hab": false,
+   "first_seen": "2026-11-19T00:58:38.734Z"
   }
  }
 }
