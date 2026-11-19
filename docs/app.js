@@ -1,5 +1,5 @@
 // Helix Veille — application principale
-import { fetchOpenOffers, CATS, score, daysLeft, kmFrom } from "./boamp.js";
+import { fetchOpenOffers, fetchNearby13, CATS, score, daysLeft, kmFrom } from "./boamp.js";
 
 const CFG = window.HELIX_CONFIG || {};
 const $ = s => document.querySelector(s);
@@ -133,12 +133,14 @@ async function loadLive({ silent = false } = {}) {
   await loadExtra();
   try {
     const ROBOT = "https://raw.githubusercontent.com/hadjazi663-ai/helix-veille/main/data/offres.json";
-    const [direct, robot] = await Promise.all([
+    const [direct, near13, robot] = await Promise.all([
       fetchOpenOffers().catch(() => []),
+      fetchNearby13().catch(() => []),
       fetch(ROBOT + "?t=" + Math.floor(Date.now() / 300000), { cache: "no-store" }).then(r => r.ok ? r.json() : { offres: {} }).catch(() => ({ offres: {} }))
     ]);
     const byId = new Map(Object.values(robot.offres || {}).filter(o => !o.limite || new Date(o.limite) > Date.now() - 864e5).map(o => [o.id, o]));
     direct.forEach(o => byId.set(o.id, { ...(byId.get(o.id) || {}), ...o }));
+    near13.forEach(o => byId.set(o.id, { ...(byId.get(o.id) || {}), ...o }));
     const offers = [...byId.values()];
     if (!offers.length && !direct.length) throw new Error("Sources injoignables");
     offers.forEach(o => { const n = notes[o.id]; if (n) { if (n.note) o.note = n.note; if (!o.resume && n.resume) o.resume = n.resume; if (n.cat) o.cat = n.cat; if (n.hab) o.hab = true; if (!o.email && n.email) o.email = n.email; if (!o.tel && n.tel) o.tel = n.tel; if (n.km != null && o.km == null) o.km = n.km; } });
@@ -147,7 +149,7 @@ async function loadLive({ silent = false } = {}) {
     live = offers; liveAt = new Date(); liveError = null;
     try { localStorage.setItem("helix-live", JSON.stringify({ at: liveAt, live })); } catch (e) { }
     markNew();
-    if (fresh.length) notifyFresh(fresh);
+    if (fresh.filter(o => o.dep !== "13").length) notifyFresh(fresh.filter(o => o.dep !== "13"));
   } catch (e) {
     liveError = e.message || "BOAMP injoignable";
     if (!live.length) { try { const c = JSON.parse(localStorage.getItem("helix-live") || "{}"); live = c.live || []; liveAt = c.at ? new Date(c.at) : null; } catch (_) { } }
@@ -345,7 +347,7 @@ const statusLabel = (o, st) => st === "deposited" ? (o.kind === "ao" ? "Offre d�
 // =====================================================================
 function renderKpis() {
   const list = allOffers();
-  const open = list.filter(o => o.kind === "ao" && !o.archived && !isClosed(o));
+  const open = list.filter(o => o.kind === "ao" && o.dep !== "13" && !o.archived && !isClosed(o));
   const gard = list.filter(o => o.cat === "gardiennage" && !o.archived && !(o.kind === "ao" && isClosed(o))).length;
   const acc = Object.values(decisions).filter(d => d.status !== "rejected").length;
   $("#kpis").innerHTML = `
@@ -358,11 +360,12 @@ function renderKpis() {
 }
 function renderTabs() {
   const list = allOffers();
-  const nAo = list.filter(o => o.kind === "ao" && !o.archived && !isClosed(o) && statusOf(o.id) === "todo").length;
-  const nNew = list.filter(o => o.kind === "ao" && newIds.has(o.id) && statusOf(o.id) === "todo").length;
+  const nAo = list.filter(o => o.kind === "ao" && o.dep !== "13" && !o.archived && !isClosed(o) && statusOf(o.id) === "todo").length;
+  const nNew = list.filter(o => o.kind === "ao" && o.dep !== "13" && newIds.has(o.id) && statusOf(o.id) === "todo").length;
+  const n13 = list.filter(o => o.kind === "ao" && o.dep === "13" && !isClosed(o) && statusOf(o.id) === "todo").length;
   const nPr = list.filter(o => o.kind === "prospect" && statusOf(o.id) === "todo").length;
   const nSuivi = Object.values(decisions).filter(d => d.status !== "rejected").length;
-  const T = [["ao", "Appels d'offres", nAo, nNew], ["prospect", "À démarcher", nPr], ["suivi", "Suivi des réponses", nSuivi], ["messages", "Modèles de messages", null], ["sources", "Sources", null], ["recrutement", "Recrutement", null]];
+  const T = [["ao", "Appels d'offres", nAo, nNew], ["ao13", "Bouches-du-Rhône", n13], ["prospect", "À démarcher", nPr], ["suivi", "Suivi des réponses", nSuivi], ["messages", "Modèles de messages", null], ["sources", "Sources", null], ["recrutement", "Recrutement", null]];
   $("#tabs").innerHTML = T.map(([k, l, n, nn]) => `<button class="tab ${tab === k ? "on" : ""}" data-tab="${k}" type="button">${l}${n !== null ? `<span class="n ${nn ? "new" : ""}">${nn ? nn + " nouv." : n}</span>` : ""}</button>`).join("");
 }
 function filtersHtml(kind) {
@@ -442,7 +445,8 @@ function whoTxt(d) {
   return [d.updated_by, d.updated_at ? new Date(d.updated_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : ""].filter(Boolean).join(" · ");
 }
 function listView(kind) {
-  let list = allOffers().filter(o => o.kind === kind);
+  const zone13 = kind === "ao13"; if (zone13) kind = "ao";
+  let list = allOffers().filter(o => o.kind === kind && (kind !== "ao" || (zone13 ? o.dep === "13" : o.dep !== "13")));
   if (kind === "ao") list = list.filter(o => F.showClosed ? (isClosed(o) || o.archived) && statusOf(o.id) !== "todo" : !isClosed(o) && !o.archived);
   if (F.cat !== "all") list = list.filter(o => o.cat === F.cat);
   if (F.st !== "all" && !(kind === "ao" && F.showClosed)) list = list.filter(o => { const s = statusOf(o.id); return F.st === "accepted" ? (s !== "todo" && s !== "rejected") : s === F.st; });
@@ -450,7 +454,9 @@ function listView(kind) {
   if (F.sort === "score") list.sort((a, b) => (newIds.has(b.id) - newIds.has(a.id)) || score(b) - score(a));
   else if (F.sort === "km") list.sort((a, b) => (a.km ?? 999) - (b.km ?? 999));
   else list.sort((a, b) => kind === "ao" ? new Date(a.limite) - new Date(b.limite) : (b.parution || "").localeCompare(a.parution || ""));
-  const intro = kind === "ao"
+  const intro = zone13
+    ? `<p class="intro">Les appels d'offres sécurité des Bouches-du-Rhône à moins de 70 km de Brignoles (Aix, Aubagne, Marseille, La Ciotat, Trets…). Ils sont listés à part et ne déclenchent pas de notification : à consulter de temps en temps.</p>`
+    : kind === "ao"
     ? `<div class="introrow"><p class="intro">Les consultations sécurité ouvertes dans le Var : BOAMP en direct, TED (Europe) et offres ajoutées depuis les alertes des plateformes. Une notification arrive sur le téléphone dès qu'une nouvelle offre est publiée.</p><button class="pill gold sm" id="btnAdd" type="button">＋ Ajouter une offre</button></div>`
     : `<p class="intro">Des acheteurs varois qui ont déjà acheté du gardiennage ces 24 derniers mois. Accepter ouvre un message de présentation pour être consulté la prochaine fois, ou pour proposer des renforts au titulaire.</p>`;
   const emptyMsg = liveError && !live.length && kind === "ao" ? "Le BOAMP est injoignable pour le moment. Réessayez dans quelques minutes." : "Aucune offre ne correspond à ces filtres.";
@@ -572,7 +578,7 @@ function recruitView() {
 function render() {
   renderKpis(); renderTabs();
   const v = $("#view");
-  if (tab === "ao" || tab === "prospect") v.innerHTML = listView(tab);
+  if (tab === "ao" || tab === "ao13" || tab === "prospect") v.innerHTML = listView(tab);
   else if (tab === "suivi") v.innerHTML = suiviView();
   else if (tab === "messages") v.innerHTML = messagesView();
   else if (tab === "sources") v.innerHTML = sourcesView();
@@ -750,9 +756,9 @@ function handleHash() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith("offre-")) {
     const id = h.slice(6), o = findOffer(id); if (!o) return;
-    tab = o.kind === "ao" ? "ao" : "prospect"; F.st = "all"; F.cat = "all"; F.q = ""; render();
+    tab = o.kind === "ao" ? (o.dep === "13" ? "ao13" : "ao") : "prospect"; F.st = "all"; F.cat = "all"; F.q = ""; render();
     const el = document.getElementById("card-" + id); if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 2500); }
-  } else if (["ao", "prospect", "suivi", "messages", "sources", "recrutement"].includes(h)) { tab = h; render(); }
+  } else if (["ao", "ao13", "prospect", "suivi", "messages", "sources", "recrutement"].includes(h)) { tab = h; render(); }
 }
 window.addEventListener("hashchange", handleHash);
 
