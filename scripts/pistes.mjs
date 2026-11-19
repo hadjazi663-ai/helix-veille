@@ -178,7 +178,7 @@ export function festivalRecords(text, maxKm13 = 70) {
     const per = (v[C.per] || "").trim();
     const web = (v[C.web] || "").trim();
     out.push({
-      id: "pi-fest-" + (v[C.id] || "").trim(), kind: "piste", grp: "festival", cat: "evenementiel", plaque: "evenementiel",
+      id: "pi-fest-" + (((C.id >= 0 && v[C.id]) || "").trim() || (String(v[C.nom] || "") + "-" + String(v[C.commune] || "")).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "-").toLowerCase()), kind: "piste", grp: "festival", cat: "evenementiel", plaque: "evenementiel",
       titre: (v[C.nom] || "").trim(), type: ["Festival", (v[C.disc] || "").trim().toLowerCase(), (v[C.env] || "").trim() ? "envergure " + v[C.env].trim().toLowerCase() : ""].filter(Boolean).join(" · "),
       acheteur: "", adresse: (v[C.adr] || "").trim(), cp: (v[C.cp] || "").trim(), ville: (v[C.commune] || "").trim(), km: k,
       tel: "", email: (v[C.mail] || "").trim(), web: web && !/^https?:/i.test(web) ? "https://" + web : web,
