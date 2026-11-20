@@ -67,6 +67,16 @@ export async function fetchMsecuOffers(fetchImpl = fetch) {
   }
   if (!ok) throw new Error("marches-securises injoignable");
   const now = Date.now();
+  try {
+    const u = `${BASE}?module=liste_consultations&presta=%3Bservices&r=gardiennage&liste_dept=83&`;
+    const variants = { defaut: {}, accept: { "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "fr-FR,fr;q=0.9", "User-Agent": "Mozilla/5.0 (Helix Veille ; veille appels d'offres Var)" },
+      helix: { "User-Agent": "Mozilla/5.0 (Helix Veille ; veille appels d'offres Var)", "Accept-Language": "fr-FR" } };
+    for (const [k, h] of Object.entries(variants)) {
+      const t = await (await fetchImpl(u, { headers: h })).text();
+      const m = t.match(/class="objet"[^>]*>\s*<div[^>]*>([\s\S]{0,120})/);
+      console.log("  test", k, ":", m ? m[1].replace(/\s+/g, " ") : "(pas d'objet)", "| cookies:", t.includes("cookie"));
+    }
+  } catch (e) { console.log("test :", e.message); }
   for (const c of seen.values()) console.log("  ·", c.cle, "|", c.zone, "|", c.cloture.slice(0, 30), "|", isRelevant({ objet: c.objet }) ? "pertinent" : "écarté", "|", c.objet.slice(0, 70));
   return [...seen.values()]
     .filter(c => /\b83\b|Var/.test(c.zone || "83") && isRelevant({ objet: c.objet }))
