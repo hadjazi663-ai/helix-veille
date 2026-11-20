@@ -1,5 +1,5 @@
 {
- "maj": "2026-11-19T00:58:38.734Z",
+ "maj": "2026-11-20T02:27:00.757Z",
  "offres": {
   "26-104009": {
    "id": "26-104009",
@@ -71,6 +71,9 @@
    "montant": null,
    "duree": null,
    "hab": true,
+   "aussi": [
+    "msecu"
+   ],
    "first_seen": "2026-11-18T20:49:38.783Z"
   },
   "26-102535": {
@@ -168,6 +171,28 @@
    "duree": null,
    "hab": false,
    "first_seen": "2026-11-19T00:58:38.734Z"
+  },
+  "ms-1793718534rnmbrblu2n6a": {
+   "id": "ms-1793718534rnmbrblu2n6a",
+   "kind": "ao",
+   "source": "msecu",
+   "masque": true,
+   "cat": "gardiennage",
+   "titre": "Consultation « gardiennage · surveillance » · intitulé à voir sur Marchés-sécurisés",
+   "acheteur": "Régie des Ports Raphaëlois",
+   "ville": "Var",
+   "dep": "83",
+   "km": null,
+   "limite": "2026-12-03T11:00:00.000Z",
+   "parution": "2026-11-03",
+   "proc": "Procédure Adaptée Ouverte > 90 k€ 2 lots",
+   "email": "",
+   "tel": "",
+   "plateforme": "https://v2.marches-securises.fr/entreprise/?module=consultation|details&cle_dce=1793718534rnmbrblu2n6a",
+   "avis": "https://v2.marches-securises.fr/entreprise/?module=consultation|details&cle_dce=1793718534rnmbrblu2n6a",
+   "resume": "Référence Regie-des-Ports-Raphaelois_83_20261103W2_01",
+   "montant": null,
+   "first_seen": "2026-11-20T02:27:00.757Z"
   }
  }
 }
