@@ -53,7 +53,7 @@ async function main() {
     fetchOpenOffers().catch(e => { console.error("BOAMP :", e.message); return null; }),
     fetchNearby13().catch(e => { console.error("BOAMP 13 :", e.message); return []; }),
     fetchTedOffers().catch(e => { console.error("TED :", e.message); return []; }),
-    fetchMsecuOffers().catch(e => { console.error("Marchés-sécurisés :", e.message); return null; })
+    fetchMsecuOffers(fetch, state.offres).catch(e => { console.error("Marchés-sécurisés :", e.message); return null; })
   ]);
   if (!boamp) { console.error("BOAMP injoignable : nouvel essai au prochain passage."); return; }
   const all = [...boamp];
