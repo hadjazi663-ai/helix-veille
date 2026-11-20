@@ -1,5 +1,5 @@
 {
- "maj": "2026-11-20T02:27:00.757Z",
+ "maj": "2026-11-20T02:38:02.875Z",
  "offres": {
   "26-104009": {
    "id": "26-104009",
@@ -176,9 +176,9 @@
    "id": "ms-1793718534rnmbrblu2n6a",
    "kind": "ao",
    "source": "msecu",
-   "masque": true,
+   "masque": false,
    "cat": "gardiennage",
-   "titre": "Consultation « gardiennage · surveillance » · intitulé à voir sur Marchés-sécurisés",
+   "titre": "Surveillance et gardiennage du vieux port et du port santa-lucia",
    "acheteur": "Régie des Ports Raphaëlois",
    "ville": "Var",
    "dep": "83",
@@ -186,12 +186,20 @@
    "limite": "2026-12-03T11:00:00.000Z",
    "parution": "2026-11-03",
    "proc": "Procédure Adaptée Ouverte > 90 k€ 2 lots",
-   "email": "",
-   "tel": "",
+   "email": "vieuxport@ville-saintraphael.fr",
+   "tel": "04 94 95 34",
    "plateforme": "https://v2.marches-securises.fr/entreprise/?module=consultation|details&cle_dce=1793718534rnmbrblu2n6a",
    "avis": "https://v2.marches-securises.fr/entreprise/?module=consultation|details&cle_dce=1793718534rnmbrblu2n6a",
    "resume": "Référence Regie-des-Ports-Raphaelois_83_20261103W2_01",
    "montant": null,
+   "aapc": {
+    "email": "vieuxport@ville-saintraphael.fr",
+    "email2": "portsantalucia@ville-saintraphael.fr",
+    "tel": "04 94 95 34",
+    "intitule": "SURVEILLANCE ET GARDIENNAGE DU VIEUX PORT ET DU PORT SANTA-LUCIA",
+    "resume": ""
+   },
+   "email2": "portsantalucia@ville-saintraphael.fr",
    "first_seen": "2026-11-20T02:27:00.757Z"
   }
  }
