@@ -58,7 +58,10 @@ export async function fetchMsecuOffers(fetchImpl = fetch) {
       const r = await fetchImpl(url, { headers: { "User-Agent": "Mozilla/5.0 (Helix Veille ; veille appels d'offres Var)", "Accept-Language": "fr-FR" } });
       if (!r.ok) { console.warn("marches-securises", mot, r.status); continue; }
       ok++;
-      for (const c of parseListe(await r.text())) if (!seen.has(c.cle)) seen.set(c.cle, c);
+      const html = await r.text(), found = parseListe(html);
+      console.log(`marches-securises « ${mot} » : ${found.length} résultat(s) · ${(html.match(/(\d+) consultations? trouv/) || [, "?"])[1]} annoncé(s) · ${html.length} car. · ${r.url.slice(0, 90)}`);
+      if (!found.length) console.log("  extrait :", html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 300));
+      for (const c of found) if (!seen.has(c.cle)) seen.set(c.cle, c);
     } catch (e) { console.warn("marches-securises", mot, e.message); }
     await new Promise(r => setTimeout(r, 400));
   }
