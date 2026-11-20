@@ -527,7 +527,7 @@ function cardHtml(o) {
        ${st !== "rejected" ? `<button class="pill sm gold" data-accept="${o.id}" type="button">Ouvrir la fiche</button>` : ""}<button class="pill sm" data-undo="${o.id}" type="button">Annuler</button>`;
   return `<article class="card st-${st}" id="card-${esc(o.id)}">
     <div class="c-top">
-      <span class="tag ${c.cls}">${c.label}</span>
+      <span class="tag ${c.cls}">${c.label}</span>${srcTags(o)}
       ${newIds.has(o.id) && o.kind === "ao" ? `<span class="tag new">Nouveau</span>` : ""}
       ${o.hot ? `<span class="tag hot">Piste chaude</span>` : ""}${o.hab ? `<span class="tag hab">Habilitation</span>` : ""}
       <span class="score" title="Pertinence pour Helix">${sc}<span class="bar"><i style="width:${sc}%"></i></span></span>
@@ -538,19 +538,26 @@ function cardHtml(o) {
     ${dl}
     ${o.resume ? `<p class="res">${esc(o.resume)}</p>` : ""}
     ${o.note ? `<div class="note">${esc(o.note)}</div>` : ""}
-    <div class="links">${avisLink(o)}${o.plateforme ? `<a href="${esc(o.plateforme)}" target="_blank" rel="noopener">Plateforme / DCE ↗</a>` : ""}<span class="who">${esc(sourceLabel(o))}</span>${o.manual ? `<button class="linkbtn" data-delmanual="${esc(o.id)}" type="button">Supprimer</button>` : ""}</div>
+    <div class="links">${avisLink(o)}${o.plateforme && o.source !== "msecu" ? `<a href="${esc(o.plateforme)}" target="_blank" rel="noopener">Plateforme / DCE ↗</a>` : ""}<span class="who">${esc(sourceLabel(o))}</span>${o.manual ? `<button class="linkbtn" data-delmanual="${esc(o.id)}" type="button">Supprimer</button>` : ""}</div>
     <div class="actions">${act}</div>
   </article>`;
 }
+const SRC_NAME = { boamp: "BOAMP", ted: "TED", msecu: "Marchés-sécurisés" };
+function srcList(o) { return [...new Set([o.source === "ted" || o.source === "msecu" ? o.source : "boamp", ...(o.aussi || [])])]; }
 function sourceLabel(o) {
   if (o.manual) return "Ajoutée à la main" + (o.origine ? " · " + o.origine : "");
-  if (o.source === "ted") return "Source : TED (Europe)";
-  if (o.kind === "ao") return "Source : BOAMP";
+  if (o.kind === "ao") return "Source : " + srcList(o).map(k => SRC_NAME[k] + (k === "ted" ? " (Europe)" : "")).join(" + ");
   return "";
+}
+function srcTags(o) {
+  if (o.kind !== "ao") return "";
+  if (o.manual) return `<span class="tag src">Ajout manuel</span>`;
+  return srcList(o).map(k => `<span class="tag src src-${k}">${SRC_NAME[k]}</span>`).join("");
 }
 function avisLink(o) {
   if (o.manual || o.kind === "etab" || o.kind === "piste") return "";
   if (o.source === "ted") return `<a href="${esc(o.avis)}" target="_blank" rel="noopener">Avis TED ↗</a>`;
+  if (o.source === "msecu") return `<a href="${esc(o.avis)}" target="_blank" rel="noopener">Voir sur Marchés-sécurisés ↗</a>`;
   return `<a href="${esc(o.avis || BOAMP(o.id))}" target="_blank" rel="noopener">Avis BOAMP ${esc(o.id)} ↗</a>`;
 }
 function whoTxt(d) {
@@ -570,7 +577,7 @@ function listView(kind) {
   const intro = zone13
     ? `<p class="intro">Les appels d'offres sécurité des Bouches-du-Rhône à moins de 70 km de Brignoles (Aix, Aubagne, Marseille, La Ciotat, Trets…). Ils sont listés à part et ne déclenchent pas de notification : à consulter de temps en temps.</p>`
     : kind === "ao"
-    ? `<div class="introrow"><p class="intro">Les consultations sécurité ouvertes dans le Var : BOAMP en direct, TED (Europe) et offres ajoutées depuis les alertes des plateformes. Une notification arrive sur le téléphone dès qu'une nouvelle offre est publiée.</p><button class="pill gold sm" id="btnAdd" type="button">＋ Ajouter une offre</button></div>`
+    ? `<div class="introrow"><p class="intro">Les consultations sécurité ouvertes dans le Var : BOAMP en direct, Marchés-sécurisés, TED (Europe) et offres ajoutées à la main. L’étiquette sur chaque carte indique d’où vient l’offre. Une notification arrive sur le téléphone dès qu'une nouvelle offre est publiée.</p><button class="pill gold sm" id="btnAdd" type="button">＋ Ajouter une offre</button></div>`
     : `<p class="intro">Des acheteurs varois qui ont déjà acheté du gardiennage ces 24 derniers mois. Accepter ouvre un message de présentation pour être consulté la prochaine fois, ou pour proposer des renforts au titulaire.</p>`;
   const emptyMsg = liveError && !live.length && kind === "ao" ? "Le BOAMP est injoignable pour le moment. Réessayez dans quelques minutes." : "Aucune offre ne correspond à ces filtres.";
   return filtersHtml(kind) + intro + (list.length ? `<div class="grid">${list.map(cardHtml).join("")}</div>` : `<div class="empty">${emptyMsg}</div>`);
