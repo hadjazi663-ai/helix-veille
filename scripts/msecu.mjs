@@ -67,6 +67,7 @@ export async function fetchMsecuOffers(fetchImpl = fetch) {
   }
   if (!ok) throw new Error("marches-securises injoignable");
   const now = Date.now();
+  for (const c of seen.values()) console.log("  ·", c.cle, "|", c.zone, "|", c.cloture.slice(0, 30), "|", isRelevant({ objet: c.objet }) ? "pertinent" : "écarté", "|", c.objet.slice(0, 70));
   return [...seen.values()]
     .filter(c => /\b83\b|Var/.test(c.zone || "83") && isRelevant({ objet: c.objet }))
     .map(c => toOffer(c, now))
