@@ -1,11 +1,12 @@
 // veille.mjs — robot d'alertes Helix Sécurité (lancé toutes les 15 min par GitHub Actions)
-// 1. lit le BOAMP et le TED (Var, sécurité / gardiennage)
+// 1. lit le BOAMP, le TED et marches-securises.fr (Var, sécurité / gardiennage)
 // 2. compare avec data/offres.json (offres déjà connues)
 // 3. envoie une notification ntfy pour chaque NOUVELLE offre
 // 4. met à jour data/offres.json (relu par la tâche Claude qui alimente l'application)
 import { readFile, writeFile } from "node:fs/promises";
 import { fetchOpenOffers, fetchNearby13, CATS, score } from "../lib/boamp.js";
 import { fetchTedOffers, isDuplicate } from "./ted.mjs";
+import { fetchMsecuOffers } from "./msecu.mjs";
 
 const { NTFY_TOPIC, APP_URL = "", NTFY_SERVER = "https://ntfy.sh" } = process.env;
 const STATE = new URL("../data/offres.json", import.meta.url);
@@ -18,13 +19,15 @@ async function push(msg) {
   const r = await fetch(NTFY_SERVER.replace(/\/$/, ""), { method: "POST", body: JSON.stringify({ topic: NTFY_TOPIC, ...msg }) });
   if (!r.ok) console.error("ntfy :", r.status, await r.text());
 }
+const SRC = { boamp: "BOAMP", ted: "TED (Europe)", msecu: "Marchés-sécurisés" };
 function offerMessage(o) {
   const lines = [o.titre, "", "🏛 " + o.acheteur, "📍 " + o.ville + (o.km === 0 ? " (Brignoles)" : o.km != null ? ` (≈ ${o.km} km de Brignoles)` : "")];
   if (o.limite) lines.push("⏱ Date limite : " + fmtDT(o.limite));
   if (o.montant) lines.push("💶 " + new Intl.NumberFormat("fr-FR").format(o.montant) + " €");
   const actions = [];
   if (link(o.id)) actions.push({ action: "view", label: "Ouvrir Helix Veille", url: link(o.id) });
-  if (o.avis) actions.push({ action: "view", label: o.source === "ted" ? "Avis TED" : "Avis BOAMP", url: o.avis });
+  if (o.avis) actions.push({ action: "view", label: SRC[o.source] ? "Voir sur " + SRC[o.source] : "Avis BOAMP", url: o.avis });
+  lines.push("", "Source : " + (SRC[o.source] || "BOAMP"));
   return {
     title: `Nouvel appel d'offres · ${CATS[o.cat]?.label || "Sécurité"}`, message: lines.join("\n"),
     tags: [o.cat === "gardiennage" ? "rotating_light" : "shield"], priority: o.cat === "gardiennage" || score(o) >= 70 ? 5 : 4,
@@ -37,16 +40,25 @@ async function main() {
   try { state = JSON.parse(await readFile(STATE, "utf8")); } catch (e) { }
   const firstRun = !state.maj;
 
-  const [boamp, near13, ted] = await Promise.all([
+  const [boamp, near13, ted, msecu] = await Promise.all([
     fetchOpenOffers().catch(e => { console.error("BOAMP :", e.message); return null; }),
     fetchNearby13().catch(e => { console.error("BOAMP 13 :", e.message); return []; }),
-    fetchTedOffers().catch(e => { console.error("TED :", e.message); return []; })
+    fetchTedOffers().catch(e => { console.error("TED :", e.message); return []; }),
+    fetchMsecuOffers().catch(e => { console.error("Marchés-sécurisés :", e.message); return null; })
   ]);
   if (!boamp) { console.error("BOAMP injoignable : nouvel essai au prochain passage."); return; }
   const all = [...boamp];
   for (const t of ted) if (!isDuplicate(t, all)) all.push(t);
+  // Marchés-sécurisés : si le marché est déjà au BOAMP, on garde la fiche BOAMP et on ajoute le lien de la plateforme
+  let nMs = 0;
+  if (msecu) for (const m of msecu) {
+    const twin = all.find(b => isDuplicate(m, [b]) || isDuplicate(b, [m]));
+    if (twin) { twin.aussi = [...new Set([...(twin.aussi || []), "msecu"])]; if (!twin.plateforme) twin.plateforme = m.plateforme; }
+    else { all.push(m); nMs++; }
+  }
+  else for (const o of Object.values(state.offres)) if (o.source === "msecu" && !all.some(a => a.id === o.id)) all.push(o); // site injoignable : on garde les offres connues
   for (const o of near13) if (!all.some(a => a.id === o.id)) all.push(o);  // Bouches-du-Rhône proches : enregistrées, sans notification
-  console.log(`Offres ouvertes : ${boamp.length} BOAMP + ${all.length - boamp.length} TED (hors doublons)`);
+  console.log(`Offres ouvertes : ${boamp.length} BOAMP + ${nMs} Marchés-sécurisés + autres (TED, 13) : ${all.length} au total`);
 
   const now = new Date().toISOString();
   const fresh = all.filter(o => !state.offres[o.id] && o.dep !== "13");
