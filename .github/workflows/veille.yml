@@ -21,7 +21,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Lire le BOAMP et le TED, alerter
+      - name: Outil de lecture des avis PDF
+        run: command -v pdftotext || (sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils)
+      - name: Lire le BOAMP, le TED et Marchés-sécurisés, alerter
         run: node scripts/veille.mjs
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
