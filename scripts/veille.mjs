@@ -56,6 +56,7 @@ async function main() {
     if (twin) { twin.aussi = [...new Set([...(twin.aussi || []), "msecu"])]; if (!twin.plateforme) twin.plateforme = m.plateforme; }
     else { all.push(m); nMs++; }
   }
+  if (msecu) console.log(`Marchés-sécurisés : ${msecu.length} consultation(s) pertinente(s), dont ${msecu.length - nMs} déjà au BOAMP/TED`);
   else for (const o of Object.values(state.offres)) if (o.source === "msecu" && !all.some(a => a.id === o.id)) all.push(o); // site injoignable : on garde les offres connues
   for (const o of near13) if (!all.some(a => a.id === o.id)) all.push(o);  // Bouches-du-Rhône proches : enregistrées, sans notification
   console.log(`Offres ouvertes : ${boamp.length} BOAMP + ${nMs} Marchés-sécurisés + autres (TED, 13) : ${all.length} au total`);
@@ -76,7 +77,8 @@ async function main() {
   }
   console.log(`Nouvelles offres notifiées : ${firstRun ? 0 : fresh.length}`);
 
-  const changed = fresh.length || firstRun || Object.keys(offres).length !== Object.keys(state.offres).length;
+  const changed = fresh.length || firstRun || Object.keys(offres).length !== Object.keys(state.offres).length
+    || all.some(o => JSON.stringify(o.aussi || []) !== JSON.stringify(state.offres[o.id]?.aussi || []));
   if (changed) await writeFile(STATE, JSON.stringify({ maj: now, offres }, null, 1) + "\n");
   else console.log("Aucun changement.");
 }
