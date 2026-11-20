@@ -19,6 +19,15 @@ async function push(msg) {
   const r = await fetch(NTFY_SERVER.replace(/\/$/, ""), { method: "POST", body: JSON.stringify({ topic: NTFY_TOPIC, ...msg }) });
   if (!r.ok) console.error("ntfy :", r.status, await r.text());
 }
+// Intitulé masqué par Marchés-sécurisés : même ville d'acheteur et même date limite (± 1 jour) qu'une offre déjà connue
+const norm = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+function sameBuyerAndDate(m, b) {
+  if (!m.limite || !b.limite || Math.abs(new Date(m.limite) - new Date(b.limite)) > 864e5 * 1.2) return false;
+  const stop = new Set(["ville", "commune", "de", "du", "des", "la", "le", "les", "l", "d", "et", "en", "sur", "var", "83"]);
+  const w = norm(m.acheteur).split(" ").filter(x => x.length > 2 && !stop.has(x));
+  const bt = norm(b.acheteur + " " + b.ville);
+  return w.length > 0 && w.some(x => bt.includes(x));
+}
 const SRC = { boamp: "BOAMP", ted: "TED (Europe)", msecu: "Marchés-sécurisés" };
 function offerMessage(o) {
   const lines = [o.titre, "", "🏛 " + o.acheteur, "📍 " + o.ville + (o.km === 0 ? " (Brignoles)" : o.km != null ? ` (≈ ${o.km} km de Brignoles)` : "")];
@@ -52,7 +61,7 @@ async function main() {
   // Marchés-sécurisés : si le marché est déjà au BOAMP, on garde la fiche BOAMP et on ajoute le lien de la plateforme
   let nMs = 0;
   if (msecu) for (const m of msecu) {
-    const twin = all.find(b => isDuplicate(m, [b]) || isDuplicate(b, [m]));
+    const twin = all.find(b => m.masque ? sameBuyerAndDate(m, b) : (isDuplicate(m, [b]) || isDuplicate(b, [m])));
     if (twin) { twin.aussi = [...new Set([...(twin.aussi || []), "msecu"])]; if (!twin.plateforme) twin.plateforme = m.plateforme; }
     else { all.push(m); nMs++; }
   }

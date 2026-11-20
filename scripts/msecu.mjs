@@ -39,19 +39,21 @@ export function parseListe(html) {
 }
 
 export function toOffer(c, now = Date.now()) {
-  const titre = nice(c.objet), acheteur = nice(c.acheteur);
+  const precis = (c.mots || []).filter(m => m !== "sécurité");
+  const titre = c.masque ? `Consultation « ${precis.join(" · ") || "sécurité"} » · intitulé à voir sur Marchés-sécurisés` : nice(c.objet);
+  const acheteur = nice(c.acheteur);
   const ville = guessCity(acheteur) || guessCity(titre) || "Var";
   const limite = frDate(c.cloture), pub = frDate(c.parution);
   const url = `${BASE}?module=consultation|details&cle_dce=${c.cle}`;
   return {
-    id: "ms-" + c.cle, kind: "ao", source: "msecu", cat: categorize(titre + " " + acheteur), titre, acheteur,
+    id: "ms-" + c.cle, kind: "ao", source: "msecu", masque: !!c.masque, cat: categorize(titre + " " + acheteur), titre, acheteur,
     ville, dep: "83", km: kmFrom(ville), limite, parution: pub ? pub.slice(0, 10) : null,
     proc: c.proc, email: "", tel: "", plateforme: url, avis: url, resume: c.ref ? "Référence " + c.ref : "", montant: null
   };
 }
 
 export async function fetchMsecuOffers(fetchImpl = fetch) {
-  const seen = new Map(); let ok = 0;
+  const seen = new Map(), mots = new Map(); let ok = 0;
   for (const mot of MOTS) {
     const url = `${BASE}?module=liste_consultations&presta=%3Bservices&r=${encodeURIComponent(mot)}&liste_dept=83&`;
     try {
@@ -59,27 +61,18 @@ export async function fetchMsecuOffers(fetchImpl = fetch) {
       if (!r.ok) { console.warn("marches-securises", mot, r.status); continue; }
       ok++;
       const html = await r.text(), found = parseListe(html);
-      console.log(`marches-securises « ${mot} » : ${found.length} résultat(s) · ${(html.match(/(\d+) consultations? trouv/) || [, "?"])[1]} annoncé(s) · ${html.length} car. · ${r.url.slice(0, 90)}`);
-      if (!found.length) console.log("  extrait :", html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 300));
-      for (const c of found) if (!seen.has(c.cle)) seen.set(c.cle, c);
+      console.log(`marches-securises « ${mot} » : ${found.length} résultat(s)`);
+      for (const c of found) { if (!seen.has(c.cle)) seen.set(c.cle, c); mots.set(c.cle, [...(mots.get(c.cle) || []), mot]); }
     } catch (e) { console.warn("marches-securises", mot, e.message); }
     await new Promise(r => setTimeout(r, 400));
   }
   if (!ok) throw new Error("marches-securises injoignable");
   const now = Date.now();
-  try {
-    const u = `${BASE}?module=liste_consultations&presta=%3Bservices&r=gardiennage&liste_dept=83&`;
-    const variants = { defaut: {}, accept: { "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "fr-FR,fr;q=0.9", "User-Agent": "Mozilla/5.0 (Helix Veille ; veille appels d'offres Var)" },
-      helix: { "User-Agent": "Mozilla/5.0 (Helix Veille ; veille appels d'offres Var)", "Accept-Language": "fr-FR" } };
-    for (const [k, h] of Object.entries(variants)) {
-      const t = await (await fetchImpl(u, { headers: h })).text();
-      const m = t.match(/class="objet"[^>]*>\s*<div[^>]*>([\s\S]{0,120})/);
-      console.log("  test", k, ":", m ? m[1].replace(/\s+/g, " ") : "(pas d'objet)", "| cookies:", t.includes("cookie"));
-    }
-  } catch (e) { console.log("test :", e.message); }
-  for (const c of seen.values()) console.log("  ·", c.cle, "|", c.zone, "|", c.cloture.slice(0, 30), "|", isRelevant({ objet: c.objet }) ? "pertinent" : "écarté", "|", c.objet.slice(0, 70));
+  // Le site masque l'intitulé (« ## ») pour les requêtes venant de serveurs : on garde alors l'acheteur, la date
+  // et le mot-clé de recherche, en ne retenant que les mots-clés précis (pas « sécurité » seul, trop large).
   return [...seen.values()]
-    .filter(c => /\b83\b|Var/.test(c.zone || "83") && isRelevant({ objet: c.objet }))
+    .map(c => ({ ...c, mots: mots.get(c.cle) || [], masque: !c.objet || /^#+$/.test(c.objet.trim()) }))
+    .filter(c => /\b83\b|Var/.test(c.zone || "83") && (c.masque ? c.mots.some(m => m !== "sécurité") : isRelevant({ objet: c.objet })))
     .map(c => toOffer(c, now))
     .filter(o => !o.limite || new Date(o.limite) > now);
 }
