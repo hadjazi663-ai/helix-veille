@@ -87,7 +87,7 @@ async function main() {
   console.log(`Nouvelles offres notifiées : ${firstRun ? 0 : fresh.length}`);
 
   const changed = fresh.length || firstRun || Object.keys(offres).length !== Object.keys(state.offres).length
-    || all.some(o => JSON.stringify(o.aussi || []) !== JSON.stringify(state.offres[o.id]?.aussi || []));
+    || JSON.stringify(offres) !== JSON.stringify(state.offres);   // mise à jour d'une offre connue (e-mail, intitulé…)
   if (changed) await writeFile(STATE, JSON.stringify({ maj: now, offres }, null, 1) + "\n");
   else console.log("Aucun changement.");
 }
